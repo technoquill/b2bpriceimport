@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<module>
+    <name>b2bpriceimport</name>
+    <displayName><![CDATA[B2B Price Import]]></displayName>
+    <version><![CDATA[0.1.0]]></version>
+    <description><![CDATA[B2B price import and discount matrix module.]]></description>
+    <author><![CDATA[B2B]]></author>
+    <tab><![CDATA[administration]]></tab>
+    <is_configurable>0</is_configurable>
+    <need_instance>0</need_instance>
+</module>
