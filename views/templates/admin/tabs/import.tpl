@@ -75,6 +75,12 @@
                             <i class="icon-play"></i>
                             {l s='Run' mod='b2bpriceimport'}
                         </button>
+                        <button type="button"
+                                class="btn btn-danger b2b-delete-import"
+                                data-id-import="{$import.id_b2b_import|intval}">
+                            <i class="icon-trash"></i>
+                            {l s='Delete' mod='b2bpriceimport'}
+                        </button>
                     </td>
                 </tr>
             {/foreach}
@@ -92,6 +98,16 @@
             messageBox.innerHTML = '<div class="alert alert-' + (success ? 'success' : 'danger') + '">' + message + '</div>';
         }
 
+        function handleJsonResponse(response) {
+            return response.text().then(function (text) {
+                try {
+                    return JSON.parse(text);
+                } catch (error) {
+                    throw new Error(text.substring(0, 1000));
+                }
+            });
+        }
+
         document.getElementById('b2b-import-form').addEventListener('submit', function (event) {
             event.preventDefault();
 
@@ -102,7 +118,7 @@
                 body: formData,
                 credentials: 'same-origin'
             })
-                .then(function (response) { return response.json(); })
+                .then(handleJsonResponse)
                 .then(function (json) {
                     showMessage(json.success, json.message);
                     if (json.success) {
@@ -127,7 +143,36 @@
                     body: formData,
                     credentials: 'same-origin'
                 })
-                    .then(function (response) { return response.json(); })
+                    .then(handleJsonResponse)
+                    .then(function (json) {
+                        showMessage(json.success, json.message);
+                        window.location.reload();
+                    })
+                    .catch(function (error) {
+                        showMessage(false, error.message);
+                    });
+            });
+        });
+
+        Array.prototype.forEach.call(document.querySelectorAll('.b2b-delete-import'), function (button) {
+            button.addEventListener('click', function () {
+                var idImport = this.getAttribute('data-id-import');
+
+                if (!confirm('{l s='Delete this import, its stored CSV file, jobs and import rows?' mod='b2bpriceimport' js=1}')) {
+                    return;
+                }
+
+                var formData = new FormData();
+                formData.append('id_import', idImport);
+
+                this.disabled = true;
+
+                fetch(ajaxUrl + '&ajax=1&action=DeleteImport', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                })
+                    .then(handleJsonResponse)
                     .then(function (json) {
                         showMessage(json.success, json.message);
                         window.location.reload();

@@ -56,4 +56,30 @@ final class ImportFileStorageService
             createdBy: $createdBy
         );
     }
+
+    public function deleteStoredFile(?string $filePath): void
+    {
+        $filePath = trim((string) $filePath);
+
+        if ($filePath === '' || !is_file($filePath)) {
+            return;
+        }
+
+        $realFilePath = realpath($filePath);
+        $realBasePath = realpath($this->baseDirectory ?: _PS_MODULE_DIR_ . 'b2bpriceimport/var/imports');
+
+        if ($realFilePath === false || $realBasePath === false) {
+            throw new RuntimeException('Cannot resolve import file path.');
+        }
+
+        $allowedPrefix = rtrim($realBasePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+
+        if (strpos($realFilePath, $allowedPrefix) !== 0) {
+            throw new RuntimeException('Import file path is outside the import storage directory.');
+        }
+
+        if (!unlink($realFilePath)) {
+            throw new RuntimeException('Cannot delete import file.');
+        }
+    }
 }

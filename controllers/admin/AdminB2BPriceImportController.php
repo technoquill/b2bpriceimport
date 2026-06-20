@@ -14,7 +14,6 @@ use B2B\PriceImport\Service\ImportFileStorageService;
 use B2B\PriceImport\Service\PriceImportParser;
 use B2B\PriceImport\Service\PriceImportProcessor;
 
-
 class AdminB2BPriceImportController extends ModuleAdminController
 {
     public function __construct()
@@ -121,7 +120,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 'message' => 'Configuration saved.',
                 'value' => $savedValue,
             ]));
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -151,7 +150,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 'message' => 'Import created.',
                 'id_import' => $idImport,
             ]));
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -179,11 +178,48 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 'parse' => $parseResult,
                 'process' => $processResult,
             ]));
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             if ($idImport > 0) {
-                $this->getImportRepository()->setStatus($idImport, 'failed', $e->getMessage());
+                try {
+                    $this->getImportRepository()->setStatus($idImport, 'failed', $e->getMessage());
+                } catch (Throwable $innerException) {
+                    // Keep the AJAX response valid even if updating the import status fails.
+                }
             }
 
+            die(json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]));
+        }
+    }
+
+    public function ajaxProcessDeleteImport()
+    {
+        header('Content-Type: application/json');
+
+        $idImport = (int) Tools::getValue('id_import');
+
+        try {
+            if ($idImport <= 0) {
+                throw new Exception('Invalid import id.');
+            }
+
+            $repository = $this->getImportRepository();
+            $import = $repository->find($idImport);
+
+            if ($import === null) {
+                throw new Exception('Import not found.');
+            }
+
+            (new ImportFileStorageService())->deleteStoredFile($import['file_path'] ?? null);
+            $repository->deleteImport($idImport);
+
+            die(json_encode([
+                'success' => true,
+                'message' => 'Import deleted.',
+            ]));
+        } catch (Throwable $e) {
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -266,7 +302,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 'message' => 'Saved.',
                 'value' => number_format($discountPercent, 2, '.', ''),
             ]));
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
