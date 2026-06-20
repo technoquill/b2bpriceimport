@@ -56,6 +56,7 @@
                         <div
                                 class="b2b-checkbox-list b2b-config-checkbox-list"
                                 data-config-key="{$config.key|escape:'html':'UTF-8'}"
+                                data-config-type="{$config.type|escape:'html':'UTF-8'}"
                         >
                             {foreach from=$allGroups item=group}
                                 <label class="b2b-checkbox-item">
@@ -69,6 +70,39 @@
                                 </label>
                             {/foreach}
                         </div>
+                    {elseif $config.type == 'text'}
+                        <input
+                                type="text"
+                                class="form-control b2b-config-field"
+                                data-config-key="{$config.key|escape:'html':'UTF-8'}"
+                                data-config-type="{$config.type|escape:'html':'UTF-8'}"
+                                value="{$config.value|escape:'html':'UTF-8'}"
+                        />
+                    {elseif $config.type == 'integer'}
+                        <input
+                                type="number"
+                                class="form-control b2b-config-field"
+                                data-config-key="{$config.key|escape:'html':'UTF-8'}"
+                                data-config-type="{$config.type|escape:'html':'UTF-8'}"
+                                value="{$config.value|intval}"
+                                {if isset($config.min)}min="{$config.min|intval}"{/if}
+                                {if isset($config.max)}max="{$config.max|intval}"{/if}
+                        />
+                    {elseif $config.type == 'select'}
+                        <select
+                                class="form-control b2b-config-field"
+                                data-config-key="{$config.key|escape:'html':'UTF-8'}"
+                                data-config-type="{$config.type|escape:'html':'UTF-8'}"
+                        >
+                            {foreach from=$config.options item=option}
+                                <option
+                                        value="{$option.value|escape:'html':'UTF-8'}"
+                                        {if $option.value == $config.value}selected="selected"{/if}
+                                >
+                                    {$option.label|escape:'html':'UTF-8'}
+                                </option>
+                            {/foreach}
+                        </select>
                     {else}
                         <div class="alert alert-warning">
                             {l s='Unsupported configuration field type:' mod='b2bpriceimport'}
@@ -105,9 +139,8 @@
             return values;
         }
 
-        function saveConfig($container) {
+        function saveConfig($container, value) {
             var key = $container.data('config-key');
-            var value = getCheckedConfigValues($container);
             var $status = $container.closest('.form-group').find('.b2b-config-status');
 
             $status
@@ -131,10 +164,6 @@
                             .removeClass('text-warning text-danger')
                             .addClass('text-success')
                             .text(response.message || 'Saved');
-
-                        setTimeout(function () {
-                            location.reload();
-                        }, 500);
                     } else {
                         $status
                             .removeClass('text-warning text-success')
@@ -153,8 +182,12 @@
 
         $('.b2b-config-checkbox').on('change', function () {
             var $container = $(this).closest('.b2b-config-checkbox-list');
+            saveConfig($container, getCheckedConfigValues($container));
+        });
 
-            saveConfig($container);
+        $('.b2b-config-field').on('change', function () {
+            var $field = $(this);
+            saveConfig($field, $field.val());
         });
     });
 </script>

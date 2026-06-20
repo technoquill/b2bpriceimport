@@ -56,7 +56,7 @@ final class B2BPriceImportConfigRepository
     /**
      * @throws Exception
      */
-    public function save(string $key, $value): array
+    public function save(string $key, $value)
     {
         $definition = $this->config->getDefinitionByKey($key);
 
@@ -91,6 +91,70 @@ final class B2BPriceImportConfigRepository
     /**
      * @throws Exception
      */
+    public function getImportScanDir(): string
+    {
+        return (string) $this->get(B2BPriceImportConfig::IMPORT_SCAN_DIR);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getImportMaxFileAgeHours(): int
+    {
+        return (int) $this->get(B2BPriceImportConfig::IMPORT_MAX_FILE_AGE_HOURS);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getImportScanLimit(): int
+    {
+        return (int) $this->get(B2BPriceImportConfig::IMPORT_SCAN_LIMIT);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getImportRunType(): string
+    {
+        return (string) $this->get(B2BPriceImportConfig::IMPORT_RUN_TYPE);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getImportBatchLimit(): int
+    {
+        return (int) $this->get(B2BPriceImportConfig::IMPORT_BATCH_LIMIT);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getImportTimeLimit(): int
+    {
+        return (int) $this->get(B2BPriceImportConfig::IMPORT_TIME_LIMIT);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getImportLockTtl(): int
+    {
+        return (int) $this->get(B2BPriceImportConfig::IMPORT_LOCK_TTL);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getImportOutputFormat(): string
+    {
+        return (string) $this->get(B2BPriceImportConfig::IMPORT_OUTPUT_FORMAT);
+    }
+
+    /**
+     * @throws Exception
+     */
     private function normalizeFromStorage(array $definition, $rawValue)
     {
         $storage = $definition['storage'] ?? null;
@@ -111,7 +175,7 @@ final class B2BPriceImportConfigRepository
     /**
      * @throws Exception
      */
-    private function normalizeForStorage(array $definition, $value): array
+    private function normalizeForStorage(array $definition, $value)
     {
         return $this->normalizeByType($definition, $value);
     }
@@ -119,7 +183,7 @@ final class B2BPriceImportConfigRepository
     /**
      * @throws Exception
      */
-    private function normalizeByType(array $definition, $value): array
+    private function normalizeByType(array $definition, $value)
     {
         $type = $definition['type'] ?? null;
 
@@ -134,6 +198,41 @@ final class B2BPriceImportConfigRepository
             });
 
             return array_values(array_unique($value));
+        }
+
+        if ($type === B2BPriceImportConfig::TYPE_TEXT) {
+            return trim((string) $value);
+        }
+
+        if ($type === B2BPriceImportConfig::TYPE_INTEGER) {
+            $value = (int) $value;
+            $min = isset($definition['min']) ? (int) $definition['min'] : null;
+            $max = isset($definition['max']) ? (int) $definition['max'] : null;
+
+            if ($min !== null && $value < $min) {
+                throw new Exception('Configuration value is below the allowed minimum.');
+            }
+
+            if ($max !== null && $value > $max) {
+                throw new Exception('Configuration value is above the allowed maximum.');
+            }
+
+            return $value;
+        }
+
+        if ($type === B2BPriceImportConfig::TYPE_SELECT) {
+            $value = (string) $value;
+            $allowedValues = [];
+
+            foreach (($definition['options'] ?? []) as $option) {
+                $allowedValues[] = (string) $option['value'];
+            }
+
+            if (!in_array($value, $allowedValues, true)) {
+                throw new Exception('Configuration value is not allowed.');
+            }
+
+            return $value;
         }
 
         throw new Exception('Unsupported configuration type.');
