@@ -62,13 +62,21 @@
             {foreach from=$imports item=import}
                 <tr>
                     <td>{$import.id_b2b_import|intval}</td>
-                    <td>{$import.original_filename|escape:'html':'UTF-8'}</td>
+                    <td>
+                        <a href="{$ajaxUrl|escape:'html':'UTF-8'}&section=import_detail&id_import={$import.id_b2b_import|intval}">
+                            {$import.original_filename|escape:'html':'UTF-8'}
+                        </a>
+                    </td>
                     <td>{$import.status|escape:'html':'UTF-8'}</td>
                     <td>{$import.total_rows|intval}</td>
                     <td>{$import.success_rows|intval}</td>
                     <td>{$import.failed_rows|intval}</td>
                     <td>{$import.date_add|escape:'html':'UTF-8'}</td>
                     <td class="text-right">
+                        <a class="btn btn-default" href="{$ajaxUrl|escape:'html':'UTF-8'}&section=import_detail&id_import={$import.id_b2b_import|intval}">
+                            <i class="icon-search"></i>
+                            {l s='Details' mod='b2bpriceimport'}
+                        </a>
                         <button type="button"
                                 class="btn btn-default b2b-run-import"
                                 data-id-import="{$import.id_b2b_import|intval}">
