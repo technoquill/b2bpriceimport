@@ -31,11 +31,6 @@ final class B2BPriceImportConfig
     public const SECTION_DISCOUNT_MATRIX = 'discount_matrix';
     public const SECTION_IMPORT = 'import';
 
-    /**
-     * Registry всіх налаштувань модуля.
-     *
-     * Один метод = одне налаштування.
-     */
     public function getDefinitions(): array
     {
         return [
@@ -51,10 +46,6 @@ final class B2BPriceImportConfig
         ];
     }
 
-    /**
-     * Налаштування:
-     * які групи клієнтів не показувати в B2B Discount Matrix.
-     */
     public function excludedGroupsFromDiscountMatrix(): array
     {
         return [
@@ -78,7 +69,7 @@ final class B2BPriceImportConfig
             'storage' => self::STORAGE_SCALAR,
             'default' => _PS_MODULE_DIR_ . 'b2bpriceimport/var/imports',
             'label' => 'Import scan directory',
-            'description' => 'Directory where the CLI command scans for fresh CSV files when --import-id is omitted. By default this is the unified module import storage.',
+            'description' => 'Directory where the CLI command scans for fresh CSV files when --import-id is omitted.',
         ];
     }
 
