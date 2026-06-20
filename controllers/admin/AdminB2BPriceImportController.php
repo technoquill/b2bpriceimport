@@ -28,11 +28,13 @@ class AdminB2BPriceImportController extends ModuleAdminController
         parent::initContent();
 
         $activeSection = $this->getActiveSection();
+        $baseUrl = $this->context->link->getAdminLink('AdminB2BPriceImport', true);
 
         $assign = [
             'activeSection' => $activeSection,
             'menuItems' => $this->getMenuItems(),
-            'ajaxUrl' => $this->context->link->getAdminLink('AdminB2BPriceImport', true),
+            'ajaxUrl' => $baseUrl,
+            'importListUrl' => $baseUrl . '&section=import',
         ];
 
         if ($activeSection === 'config') {
@@ -50,6 +52,16 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $assign['imports'] = $this->getImportRepository()->getLastImports(20);
         }
 
+        if ($activeSection === 'import_detail') {
+            $idImport = (int) Tools::getValue('id_import');
+            $repository = $this->getImportRepository();
+            $import = $idImport > 0 ? $repository->find($idImport) : null;
+
+            $assign['import'] = $import;
+            $assign['importItems'] = $import !== null ? $repository->getImportItems($idImport, 1000) : [];
+            $assign['importJobs'] = $import !== null ? $repository->getImportJobs($idImport) : [];
+        }
+
         $this->context->smarty->assign($assign);
 
         $this->setTemplate('index.tpl');
@@ -63,6 +75,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
             'config',
             'discount_matrix',
             'import',
+            'import_detail',
             'logs',
         ];
 
