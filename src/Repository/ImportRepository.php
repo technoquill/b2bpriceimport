@@ -96,6 +96,58 @@ final class ImportRepository
         return is_array($rows) ? $rows : [];
     }
 
+    public function getImportItems(int $idImport, int $limit = 500): array
+    {
+        $query = new DbQuery();
+        $query->select('
+            ii.id_b2b_import_item,
+            ii.row_number,
+            ii.reference,
+            ii.status,
+            ii.error_code,
+            ii.error_message,
+            ii.processed_at,
+            ii.date_add,
+            ii.date_upd,
+            ps.id_product,
+            ps.source_price,
+            ps.currency_code,
+            ps.currency_rate,
+            ps.price_uah,
+            ps.active,
+            ps.validation_status,
+            ps.processing_status,
+            ps.error_code AS staging_error_code,
+            ps.error_message AS staging_error_message
+        ');
+        $query->from('b2b_import_item', 'ii');
+        $query->leftJoin(
+            'b2b_import_price_staging',
+            'ps',
+            'ps.id_b2b_import_item = ii.id_b2b_import_item'
+        );
+        $query->where('ii.id_b2b_import = ' . (int) $idImport);
+        $query->orderBy('ii.row_number ASC, ii.id_b2b_import_item ASC');
+        $query->limit($limit);
+
+        $rows = Db::getInstance()->executeS($query);
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    public function getImportJobs(int $idImport): array
+    {
+        $query = new DbQuery();
+        $query->select('*');
+        $query->from('b2b_import_job');
+        $query->where('id_b2b_import = ' . (int) $idImport);
+        $query->orderBy('id_b2b_import_job ASC');
+
+        $rows = Db::getInstance()->executeS($query);
+
+        return is_array($rows) ? $rows : [];
+    }
+
     public function deleteImport(int $idImport): void
     {
         if ($this->find($idImport) === null) {
