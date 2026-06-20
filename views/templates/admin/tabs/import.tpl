@@ -5,7 +5,9 @@
     </h3>
 
     <div class="alert alert-info">
-        {l s='CSV columns: reference, price, currency. Optional column: active.' mod='b2bpriceimport'}
+        <p>{l s='Required CSV columns: reference, price, currency, currency_rate, active.' mod='b2bpriceimport'}</p>
+        <p><strong>{l s='Example:' mod='b2bpriceimport'}</strong> <code>ER45398;68.15;EUR;52.15;1</code></p>
+        <p>{l s='Validation: reference is required, price must be numeric and not negative, currency must be a 3-letter code, currency_rate must be greater than zero, active must be 0 or 1.' mod='b2bpriceimport'}</p>
     </div>
 
     <form id="b2b-import-form" class="form-horizontal" method="post" enctype="multipart/form-data">
