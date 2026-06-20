@@ -9,6 +9,10 @@ if (file_exists(_PS_MODULE_DIR_ . 'b2bpriceimport/vendor/autoload.php')) {
 }
 
 use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
+use B2B\PriceImport\Repository\ImportRepository;
+use B2B\PriceImport\Service\ImportFileStorageService;
+use B2B\PriceImport\Service\PriceImportParser;
+use B2B\PriceImport\Service\PriceImportProcessor;
 
 
 class AdminB2BPriceImportController extends ModuleAdminController
@@ -43,12 +47,14 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $assign['groups'] = $this->getCustomerGroups();
         }
 
+        if ($activeSection === 'import') {
+            $assign['imports'] = $this->getImportRepository()->getLastImports(20);
+        }
+
         $this->context->smarty->assign($assign);
 
         $this->setTemplate('index.tpl');
-
     }
-
 
     private function getActiveSection(): string
     {
@@ -67,7 +73,6 @@ class AdminB2BPriceImportController extends ModuleAdminController
 
         return $section;
     }
-
 
     private function getMenuItems(): array
     {
@@ -101,7 +106,6 @@ class AdminB2BPriceImportController extends ModuleAdminController
         ];
     }
 
-
     public function ajaxProcessSaveConfig()
     {
         header('Content-Type: application/json');
@@ -118,6 +122,68 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 'value' => $savedValue,
             ]));
         } catch (Exception $e) {
+            die(json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]));
+        }
+    }
+
+    public function ajaxProcessCreateImport()
+    {
+        header('Content-Type: application/json');
+
+        try {
+            if (empty($_FILES['import_file'])) {
+                throw new Exception('Import file is required.');
+            }
+
+            $employeeId = isset($this->context->employee->id) ? (int) $this->context->employee->id : null;
+            $createData = (new ImportFileStorageService())->storeUploadedCsv($_FILES['import_file'], $employeeId);
+
+            $repository = $this->getImportRepository();
+            $idImport = $repository->create($createData);
+            $repository->createJob($idImport, 'parse');
+            $repository->createJob($idImport, 'process');
+
+            die(json_encode([
+                'success' => true,
+                'message' => 'Import created.',
+                'id_import' => $idImport,
+            ]));
+        } catch (Exception $e) {
+            die(json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]));
+        }
+    }
+
+    public function ajaxProcessRunImport()
+    {
+        header('Content-Type: application/json');
+
+        $idImport = (int) Tools::getValue('id_import');
+
+        try {
+            if ($idImport <= 0) {
+                throw new Exception('Invalid import id.');
+            }
+
+            $parseResult = (new PriceImportParser())->parse($idImport);
+            $processResult = (new PriceImportProcessor())->process($idImport);
+
+            die(json_encode([
+                'success' => true,
+                'message' => 'Import processed.',
+                'parse' => $parseResult,
+                'process' => $processResult,
+            ]));
+        } catch (Exception $e) {
+            if ($idImport > 0) {
+                $this->getImportRepository()->setStatus($idImport, 'failed', $e->getMessage());
+            }
+
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -208,21 +274,16 @@ class AdminB2BPriceImportController extends ModuleAdminController
         }
     }
 
-    /**
-     * @return B2BPriceImportConfigRepository
-     */
     private function getConfigRepository(): B2BPriceImportConfigRepository
     {
         return new B2BPriceImportConfigRepository();
     }
 
-    /**
-     * Retrieves the list of customer groups, filtering out any groups that are excluded
-     * based on the configuration settings.
-     *
-     * @return array The filtered list of customer groups.
-     * @throws Exception
-     */
+    private function getImportRepository(): ImportRepository
+    {
+        return new ImportRepository();
+    }
+
     private function getCustomerGroups(): array
     {
         $groups = $this->getAllCustomerGroups();
@@ -243,11 +304,6 @@ class AdminB2BPriceImportController extends ModuleAdminController
         return $filteredGroups;
     }
 
-    /**
-     * Retrieves all customer groups with their IDs and names based on the current language context.
-     *
-     * @return array An array of customer groups containing their IDs and names. Returns an empty array if no groups are found or if there is an error.
-     */
     private function getAllCustomerGroups(): array
     {
         $sql = new DbQuery();
@@ -266,12 +322,6 @@ class AdminB2BPriceImportController extends ModuleAdminController
         return is_array($rows) ? $rows : [];
     }
 
-    /**
-     * Builds a hierarchical matrix representing the category structure, including associated brands and discounts.
-     *
-     * @return array A structured array where each item represents a category node with its children, brands, and discount information.
-     *               Returns an empty array if the category structure is not defined or if there are no child categories for the root.
-     */
     private function buildMatrix(): array
     {
         $categories = $this->getCategories();
