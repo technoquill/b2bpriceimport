@@ -10,6 +10,7 @@ if (file_exists(_PS_MODULE_DIR_ . 'b2bpriceimport/vendor/autoload.php')) {
 
 use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
 
+
 class AdminB2BPriceImportController extends ModuleAdminController
 {
     public function __construct()
