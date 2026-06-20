@@ -46,12 +46,12 @@ final class ProductPriceUpdater
         $idManufacturer = (int) $product->id_manufacturer;
 
         if ($idManufacturer <= 0) {
-            return;
+            throw new RuntimeException('Missing product manufacturer. Discount rule cannot be resolved.');
         }
 
         $categoryIds = Product::getProductCategories($idProduct);
         if (!is_array($categoryIds) || empty($categoryIds)) {
-            return;
+            throw new RuntimeException('Missing product categories. Discount rule cannot be resolved.');
         }
 
         $categoryIds = array_map('intval', $categoryIds);
@@ -65,8 +65,8 @@ final class ProductPriceUpdater
         $query->orderBy('id_category DESC, id_b2b_discount_rule DESC');
 
         $rows = Db::getInstance()->executeS($query);
-        if (!is_array($rows)) {
-            return;
+        if (!is_array($rows) || empty($rows)) {
+            throw new RuntimeException('No active discount rule found for product manufacturer/category/group matrix.');
         }
 
         $rulesByGroup = [];
@@ -75,6 +75,10 @@ final class ProductPriceUpdater
             if (!isset($rulesByGroup[$idGroup])) {
                 $rulesByGroup[$idGroup] = (float) $row['discount_percent'];
             }
+        }
+
+        if (empty($rulesByGroup)) {
+            throw new RuntimeException('No active discount rule found for product manufacturer/category/group matrix.');
         }
 
         foreach ($rulesByGroup as $idGroup => $discountPercent) {
