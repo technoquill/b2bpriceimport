@@ -30,13 +30,13 @@ final class ImportFileStorageService
             throw new RuntimeException('Only .csv files are allowed.');
         }
 
-        $directory = ($this->baseDirectory ?: _PS_MODULE_DIR_ . 'b2bpriceimport/var/imports') . '/' . date('Y/m');
+        $directory = $this->baseDirectory ?: _PS_MODULE_DIR_ . 'b2bpriceimport/var/imports';
         if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
             throw new RuntimeException('Cannot create import storage directory.');
         }
 
         $storedFilename = date('Ymd_His') . '_' . bin2hex(random_bytes(8)) . '.csv';
-        $targetPath = $directory . '/' . $storedFilename;
+        $targetPath = rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $storedFilename;
 
         if (!move_uploaded_file($tmpName, $targetPath)) {
             throw new RuntimeException('Cannot store uploaded CSV file.');
