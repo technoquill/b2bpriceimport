@@ -41,7 +41,7 @@ final class PriceImportProcessor
                 $active = $row['active'] !== null ? (int) $row['active'] : null;
 
                 $updater->updateProduct($idProduct, $priceUah, $active);
-                $updater->applyDiscountMatrix($idProduct);
+                $updater->applyDiscountMatrix($idProduct, $priceUah);
 
                 $repository->markRowProcessed($idStaging, $idItem);
                 $processed++;
