@@ -71,6 +71,44 @@ final class ImportRepository
         return is_array($row) ? $row : null;
     }
 
+    public function findByFileHash(string $fileHash): ?array
+    {
+        $fileHash = trim($fileHash);
+
+        if ($fileHash === '') {
+            return null;
+        }
+
+        $query = new DbQuery();
+        $query->select('*');
+        $query->from('b2b_import');
+        $query->where('file_hash = "' . pSQL($fileHash) . '"');
+        $query->orderBy('id_b2b_import DESC');
+
+        $row = Db::getInstance()->getRow($query);
+
+        return is_array($row) ? $row : null;
+    }
+
+    public function findByFilePath(string $filePath): ?array
+    {
+        $filePath = trim($filePath);
+
+        if ($filePath === '') {
+            return null;
+        }
+
+        $query = new DbQuery();
+        $query->select('*');
+        $query->from('b2b_import');
+        $query->where('file_path = "' . pSQL($filePath) . '"');
+        $query->orderBy('id_b2b_import DESC');
+
+        $row = Db::getInstance()->getRow($query);
+
+        return is_array($row) ? $row : null;
+    }
+
     public function hasActiveImport(): bool
     {
         $statuses = array_map(static fn (string $status): string => "'" . pSQL($status) . "'", ImportStatus::activeStatuses());
