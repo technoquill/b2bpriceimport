@@ -36,8 +36,12 @@ final class ProductPriceUpdater
         Db::getInstance()->update('product_shop', $data, 'id_product = ' . (int) $idProduct);
     }
 
-    public function applyDiscountMatrix(int $idProduct): void
+    public function applyDiscountMatrix(int $idProduct, float $basePrice): void
     {
+        if ($basePrice < 0) {
+            throw new RuntimeException('Base price cannot be negative.');
+        }
+
         $product = new Product($idProduct);
         $idManufacturer = (int) $product->id_manufacturer;
 
@@ -74,11 +78,13 @@ final class ProductPriceUpdater
         }
 
         foreach ($rulesByGroup as $idGroup => $discountPercent) {
-            $this->replaceGroupSpecificPrice($idProduct, (int) $idGroup, $discountPercent);
+            $finalPrice = round($basePrice * (1 - ($discountPercent / 100)), 6);
+
+            $this->replaceGroupFixedPrice($idProduct, (int) $idGroup, $finalPrice);
         }
     }
 
-    private function replaceGroupSpecificPrice(int $idProduct, int $idGroup, float $discountPercent): void
+    private function replaceGroupFixedPrice(int $idProduct, int $idGroup, float $finalPrice): void
     {
         Db::getInstance()->delete(
             'specific_price',
@@ -86,11 +92,10 @@ final class ProductPriceUpdater
             ' AND id_group = ' . (int) $idGroup .
             ' AND id_customer = 0' .
             ' AND id_product_attribute = 0' .
-            ' AND from_quantity = 1' .
-            " AND reduction_type = 'percentage'"
+            ' AND from_quantity = 1'
         );
 
-        if ($discountPercent <= 0) {
+        if ($finalPrice <= 0) {
             return;
         }
 
@@ -103,16 +108,16 @@ final class ProductPriceUpdater
         $specificPrice->id_country = 0;
         $specificPrice->id_group = $idGroup;
         $specificPrice->id_customer = 0;
-        $specificPrice->price = -1;
+        $specificPrice->price = $finalPrice;
         $specificPrice->from_quantity = 1;
-        $specificPrice->reduction = $discountPercent / 100;
-        $specificPrice->reduction_tax = 1;
-        $specificPrice->reduction_type = 'percentage';
+        $specificPrice->reduction = 0;
+        $specificPrice->reduction_tax = 0;
+        $specificPrice->reduction_type = 'amount';
         $specificPrice->from = '0000-00-00 00:00:00';
         $specificPrice->to = '0000-00-00 00:00:00';
 
         if (!$specificPrice->add()) {
-            throw new RuntimeException('Cannot create group specific price.');
+            throw new RuntimeException('Cannot create group fixed price.');
         }
     }
 }
