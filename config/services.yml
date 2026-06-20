@@ -1,0 +1,8 @@
+services:
+  _defaults:
+    public: true
+
+  b2b.price_import.command.run:
+    class: B2B\PriceImport\Command\RunPriceImportCommand
+    tags:
+      - { name: 'console.command' }
