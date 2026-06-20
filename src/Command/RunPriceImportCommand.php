@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace B2B\PriceImport\Command;
 
+use B2B\PriceImport\Config\B2BPriceImportConfig;
+use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
 use B2B\PriceImport\Repository\ImportRepository;
 use B2B\PriceImport\Service\ImportFileScannerService;
 use B2B\PriceImport\Service\ImportLockService;
@@ -33,7 +35,8 @@ final class RunPriceImportCommand extends Command
         private readonly ?PriceImportParser $parser = null,
         private readonly ?PriceImportProcessor $processor = null,
         private readonly ?ImportLockService $lockService = null,
-        private readonly ?ImportFileScannerService $scanner = null
+        private readonly ?ImportFileScannerService $scanner = null,
+        private readonly ?B2BPriceImportConfigRepository $configRepository = null
     ) {
         parent::__construct();
     }
@@ -43,15 +46,15 @@ final class RunPriceImportCommand extends Command
         $this
             ->setDescription('Run B2B price import from CLI.')
             ->addOption('import-id', null, InputOption::VALUE_REQUIRED, 'Import ID to run. If omitted, the command scans the filesystem inbox first.')
-            ->addOption('type', null, InputOption::VALUE_REQUIRED, 'Import stage: parse, process or all.', self::TYPE_ALL)
-            ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Maximum rows to process per processor batch.', '500')
-            ->addOption('time-limit', null, InputOption::VALUE_REQUIRED, 'Maximum command runtime in seconds.', '55')
-            ->addOption('lock-ttl', null, InputOption::VALUE_REQUIRED, 'Import lock TTL in seconds.', '120')
+            ->addOption('type', null, InputOption::VALUE_REQUIRED, 'Import stage: parse, process or all. Overrides module configuration.')
+            ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Maximum rows to process per processor batch. Overrides module configuration.')
+            ->addOption('time-limit', null, InputOption::VALUE_REQUIRED, 'Maximum command runtime in seconds. Overrides module configuration.')
+            ->addOption('lock-ttl', null, InputOption::VALUE_REQUIRED, 'Import lock TTL in seconds. Overrides module configuration.')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Force lock replacement.')
-            ->addOption('format', null, InputOption::VALUE_REQUIRED, 'Output format: text or json.', self::FORMAT_TEXT)
-            ->addOption('scan-dir', null, InputOption::VALUE_REQUIRED, 'Directory to scan for fresh CSV files.', $this->getDefaultScanDirectory())
-            ->addOption('max-file-age-hours', null, InputOption::VALUE_REQUIRED, 'Only register CSV files not older than this value.', '24')
-            ->addOption('scan-limit', null, InputOption::VALUE_REQUIRED, 'Maximum new filesystem imports to register per command run.', '1');
+            ->addOption('format', null, InputOption::VALUE_REQUIRED, 'Output format: text or json. Overrides module configuration.')
+            ->addOption('scan-dir', null, InputOption::VALUE_REQUIRED, 'Directory to scan for fresh CSV files. Overrides module configuration.')
+            ->addOption('max-file-age-hours', null, InputOption::VALUE_REQUIRED, 'Only register CSV files not older than this value. Overrides module configuration.')
+            ->addOption('scan-limit', null, InputOption::VALUE_REQUIRED, 'Maximum new filesystem imports to register per command run. Overrides module configuration.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -74,9 +77,27 @@ final class RunPriceImportCommand extends Command
         try {
             $repository = $this->repository ?: new ImportRepository();
             $type = $this->resolveType($input);
-            $limit = $this->resolvePositiveInt($input, 'limit', 500, 1, 5000);
-            $timeLimit = $this->resolvePositiveInt($input, 'time-limit', 55, 1, 3600);
-            $lockTtl = $this->resolvePositiveInt($input, 'lock-ttl', 120, 1, 3600);
+            $limit = $this->resolvePositiveInt(
+                $input,
+                'limit',
+                $this->getConfigRepository()->getImportBatchLimit(),
+                1,
+                5000
+            );
+            $timeLimit = $this->resolvePositiveInt(
+                $input,
+                'time-limit',
+                $this->getConfigRepository()->getImportTimeLimit(),
+                1,
+                3600
+            );
+            $lockTtl = $this->resolvePositiveInt(
+                $input,
+                'lock-ttl',
+                $this->getConfigRepository()->getImportLockTtl(),
+                1,
+                3600
+            );
             $format = $this->resolveFormat($input);
             $force = (bool) $input->getOption('force');
 
@@ -151,9 +172,21 @@ final class RunPriceImportCommand extends Command
             return $idImport;
         }
 
-        $scanDirectory = (string) $input->getOption('scan-dir');
-        $maxFileAgeHours = $this->resolvePositiveInt($input, 'max-file-age-hours', 24, 1, 168);
-        $scanLimit = $this->resolvePositiveInt($input, 'scan-limit', 1, 1, 50);
+        $scanDirectory = $this->resolveString($input, 'scan-dir', $this->getConfigRepository()->getImportScanDir());
+        $maxFileAgeHours = $this->resolvePositiveInt(
+            $input,
+            'max-file-age-hours',
+            $this->getConfigRepository()->getImportMaxFileAgeHours(),
+            1,
+            168
+        );
+        $scanLimit = $this->resolvePositiveInt(
+            $input,
+            'scan-limit',
+            $this->getConfigRepository()->getImportScanLimit(),
+            1,
+            50
+        );
 
         $scan = ($this->scanner ?: new ImportFileScannerService($repository))->scanAndCreateImports(
             $scanDirectory,
@@ -172,7 +205,7 @@ final class RunPriceImportCommand extends Command
 
     private function resolveType(InputInterface $input): string
     {
-        $type = (string) $input->getOption('type');
+        $type = $this->resolveString($input, 'type', $this->getConfigRepository()->getImportRunType());
         $allowedTypes = [self::TYPE_PARSE, self::TYPE_PROCESS, self::TYPE_ALL];
 
         if (!in_array($type, $allowedTypes, true)) {
@@ -184,7 +217,7 @@ final class RunPriceImportCommand extends Command
 
     private function resolveFormat(InputInterface $input): string
     {
-        $format = (string) $input->getOption('format');
+        $format = $this->resolveString($input, 'format', $this->getConfigRepository()->getImportOutputFormat());
         $allowedFormats = [self::FORMAT_TEXT, self::FORMAT_JSON];
 
         if (!in_array($format, $allowedFormats, true)) {
@@ -199,7 +232,7 @@ final class RunPriceImportCommand extends Command
         $value = $input->getOption($optionName);
 
         if ($value === null || $value === '') {
-            return $default;
+            $value = $default;
         }
 
         $value = (int) $value;
@@ -209,6 +242,22 @@ final class RunPriceImportCommand extends Command
         }
 
         return $value;
+    }
+
+    private function resolveString(InputInterface $input, string $optionName, string $default): string
+    {
+        $value = $input->getOption($optionName);
+
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        return trim((string) $value);
+    }
+
+    private function getConfigRepository(): B2BPriceImportConfigRepository
+    {
+        return $this->configRepository ?: new B2BPriceImportConfigRepository(new B2BPriceImportConfig());
     }
 
     private function writeSummary(OutputInterface $output, array $summary, string $format): void
@@ -238,10 +287,5 @@ final class RunPriceImportCommand extends Command
         $output->writeln('Process processed: ' . (int) $summary['process']['processed']);
         $output->writeln('Process failed: ' . (int) $summary['process']['failed']);
         $output->writeln('Message: ' . ($summary['message'] ?? '-'));
-    }
-
-    private function getDefaultScanDirectory(): string
-    {
-        return _PS_MODULE_DIR_ . 'b2bpriceimport/var/imports/inbox';
     }
 }
