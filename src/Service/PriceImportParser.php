@@ -14,15 +14,13 @@ use Throwable;
 final class PriceImportParser
 {
     public function __construct(
-        private readonly ?ImportRepository $repository = null,
-        private readonly ?CurrencyRateResolver $currencyRateResolver = null
+        private readonly ?ImportRepository $repository = null
     ) {
     }
 
     public function parse(int $idImport): array
     {
         $repository = $this->repository ?: new ImportRepository();
-        $currencyRateResolver = $this->currencyRateResolver ?: new CurrencyRateResolver();
         $import = $repository->find($idImport);
 
         if ($import === null) {
@@ -61,8 +59,7 @@ final class PriceImportParser
                     throw new RuntimeException('Product not found by reference: ' . $normalized['reference']);
                 }
 
-                $rate = $currencyRateResolver->getRateToUah($normalized['currency']);
-                $priceUah = round($normalized['price'] * $rate, 6);
+                $priceUah = round($normalized['price'] * $normalized['currency_rate'], 6);
 
                 $idItem = $repository->addItem($idImport, $rowNumber, $normalized['reference'], $normalized, 'pending');
 
@@ -73,7 +70,7 @@ final class PriceImportParser
                     'id_product' => $idProduct,
                     'source_price' => $normalized['price'],
                     'currency_code' => $normalized['currency'],
-                    'currency_rate' => $rate,
+                    'currency_rate' => $normalized['currency_rate'],
                     'price_uah' => $priceUah,
                     'active' => $normalized['active'],
                     'validation_status' => 'valid',
@@ -142,9 +139,9 @@ final class PriceImportParser
     {
         $header = array_map(static fn ($value): string => strtolower(trim((string) $value)), $header);
 
-        foreach (['reference', 'price', 'currency'] as $column) {
+        foreach (['reference', 'price', 'currency', 'currency_rate', 'active'] as $column) {
             if (!in_array($column, $header, true)) {
-                throw new RuntimeException('Missing CSV column: ' . $column);
+                throw new RuntimeException('Missing required CSV column: ' . $column);
             }
         }
     }
@@ -161,27 +158,54 @@ final class PriceImportParser
             throw new RuntimeException('Reference is empty.');
         }
 
-        $priceRaw = str_replace([' ', ','], ['', '.'], trim((string) ($row['price'] ?? '')));
-        if ($priceRaw === '' || !is_numeric($priceRaw)) {
-            throw new RuntimeException('Invalid price for reference: ' . $reference);
+        $price = $this->normalizeDecimal($row['price'] ?? null, 'price', $reference, true);
+        $currencyRate = $this->normalizeDecimal($row['currency_rate'] ?? null, 'currency_rate', $reference, false);
+
+        $currency = strtoupper(trim((string) ($row['currency'] ?? '')));
+        if ($currency === '') {
+            throw new RuntimeException('Currency is empty for reference: ' . $reference);
         }
 
-        $price = (float) $priceRaw;
-        if ($price < 0) {
-            throw new RuntimeException('Negative price for reference: ' . $reference);
+        if (strlen($currency) !== 3 || ctype_alpha($currency) === false) {
+            throw new RuntimeException('Invalid currency code for reference: ' . $reference);
         }
 
-        $currency = strtoupper(trim((string) ($row['currency'] ?? 'UAH')));
-        $active = null;
-        if (array_key_exists('active', $row) && trim((string) $row['active']) !== '') {
-            $active = (int) ((int) $row['active'] > 0);
+        $activeRaw = trim((string) ($row['active'] ?? ''));
+        if ($activeRaw === '') {
+            throw new RuntimeException('Active is empty for reference: ' . $reference);
+        }
+
+        if (!in_array($activeRaw, ['0', '1'], true)) {
+            throw new RuntimeException('Active must be 0 or 1 for reference: ' . $reference);
         }
 
         return [
             'reference' => $reference,
             'price' => $price,
-            'currency' => $currency !== '' ? $currency : 'UAH',
-            'active' => $active,
+            'currency' => $currency,
+            'currency_rate' => $currencyRate,
+            'active' => (int) $activeRaw,
         ];
+    }
+
+    private function normalizeDecimal($value, string $fieldName, string $reference, bool $allowZero): float
+    {
+        $raw = str_replace([' ', ','], ['', '.'], trim((string) $value));
+
+        if ($raw === '' || !is_numeric($raw)) {
+            throw new RuntimeException('Invalid ' . $fieldName . ' for reference: ' . $reference);
+        }
+
+        $number = (float) $raw;
+
+        if ($allowZero) {
+            if ($number < 0) {
+                throw new RuntimeException($fieldName . ' cannot be negative for reference: ' . $reference);
+            }
+        } elseif ($number <= 0) {
+            throw new RuntimeException($fieldName . ' must be greater than zero for reference: ' . $reference);
+        }
+
+        return $number;
     }
 }
