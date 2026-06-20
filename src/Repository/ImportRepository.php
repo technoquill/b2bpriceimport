@@ -96,6 +96,23 @@ final class ImportRepository
         return is_array($rows) ? $rows : [];
     }
 
+    public function deleteImport(int $idImport): void
+    {
+        if ($this->find($idImport) === null) {
+            throw new RuntimeException('Import not found.');
+        }
+
+        Db::getInstance()->delete('b2b_import_price_staging', 'id_b2b_import = ' . (int) $idImport);
+        Db::getInstance()->delete('b2b_import_item', 'id_b2b_import = ' . (int) $idImport);
+        Db::getInstance()->delete('b2b_import_job', 'id_b2b_import = ' . (int) $idImport);
+
+        $deleted = Db::getInstance()->delete('b2b_import', 'id_b2b_import = ' . (int) $idImport);
+
+        if (!$deleted) {
+            throw new RuntimeException('Cannot delete import record.');
+        }
+    }
+
     public function resetRows(int $idImport): void
     {
         Db::getInstance()->delete('b2b_import_price_staging', 'id_b2b_import = ' . (int) $idImport);
