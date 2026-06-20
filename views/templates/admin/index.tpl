@@ -6,7 +6,7 @@
 
     <ul class="nav nav-tabs" id="b2b-priceimport-menu">
         {foreach from=$menuItems item=menuItem}
-            <li class="{if $activeSection == $menuItem.key}active{/if}">
+            <li class="{if $activeSection == $menuItem.key || ($activeSection == 'import_detail' && $menuItem.key == 'import')}active{/if}">
                 <a href="{$menuItem.url|escape:'html':'UTF-8'}">
                     <i class="{$menuItem.icon|escape:'html':'UTF-8'}"></i>
                     {$menuItem.label|escape:'html':'UTF-8'}
@@ -22,6 +22,8 @@
             {include file="./tabs/config_panel.tpl"}
         {elseif $activeSection == 'import'}
             {include file="./tabs/import.tpl"}
+        {elseif $activeSection == 'import_detail'}
+            {include file="./tabs/import_detail.tpl"}
         {elseif $activeSection == 'logs'}
             {include file="./tabs/logs.tpl"}
         {else}
