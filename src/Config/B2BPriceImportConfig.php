@@ -76,9 +76,9 @@ final class B2BPriceImportConfig
             'section' => self::SECTION_IMPORT,
             'type' => self::TYPE_TEXT,
             'storage' => self::STORAGE_SCALAR,
-            'default' => _PS_MODULE_DIR_ . 'b2bpriceimport/var/imports/inbox',
+            'default' => _PS_MODULE_DIR_ . 'b2bpriceimport/var/imports',
             'label' => 'Import scan directory',
-            'description' => 'Directory where the CLI command scans for fresh CSV files when --import-id is omitted.',
+            'description' => 'Directory where the CLI command scans for fresh CSV files when --import-id is omitted. By default this is the unified module import storage.',
         ];
     }
 
