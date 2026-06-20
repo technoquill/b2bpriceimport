@@ -6,8 +6,7 @@ namespace B2B\PriceImport\Service;
 
 use B2B\PriceImport\Dto\ImportCreateData;
 use B2B\PriceImport\Repository\ImportRepository;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
+use DirectoryIterator;
 use RuntimeException;
 use SplFileInfo;
 
@@ -43,11 +42,7 @@ final class ImportFileScannerService
         $created = [];
         $skipped = [];
 
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($realDirectory, RecursiveDirectoryIterator::SKIP_DOTS)
-        );
-
-        foreach ($iterator as $file) {
+        foreach (new DirectoryIterator($realDirectory) as $file) {
             if (!$file instanceof SplFileInfo || !$file->isFile()) {
                 continue;
             }
