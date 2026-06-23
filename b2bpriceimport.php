@@ -104,6 +104,20 @@ class B2bPriceImport extends Module
 
         $sql = str_replace('PREFIX_', _DB_PREFIX_, $sql);
 
+        if (str_contains($sql, 'DB_CHARSET') || str_contains($sql, 'DB_COLLATION')) {
+            $databaseEncoding = $this->getDatabaseEncoding();
+
+            if ($databaseEncoding === null) {
+                return false;
+            }
+
+            $sql = str_replace(
+                ['DB_CHARSET', 'DB_COLLATION'],
+                [$databaseEncoding['charset'], $databaseEncoding['collation']],
+                $sql
+            );
+        }
+
         $queries = preg_split('/;\s*(?:\r\n|\r|\n)/', $sql);
 
         foreach ($queries as $query) {
@@ -119,6 +133,40 @@ class B2bPriceImport extends Module
         }
 
         return true;
+    }
+
+    /**
+     * @return array{charset: string, collation: string}|null
+     */
+    private function getDatabaseEncoding(): ?array
+    {
+        $encoding = Db::getInstance()->getRow(
+            'SELECT
+                DEFAULT_CHARACTER_SET_NAME AS charset,
+                DEFAULT_COLLATION_NAME AS collation
+            FROM information_schema.SCHEMATA
+            WHERE SCHEMA_NAME = DATABASE()'
+        );
+
+        if (!is_array($encoding)) {
+            return null;
+        }
+
+        $charset = (string)($encoding['charset'] ?? '');
+        $collation = (string)($encoding['collation'] ?? '');
+        $validIdentifierPattern = '/^[a-zA-Z0-9_]+$/D';
+
+        if (
+            preg_match($validIdentifierPattern, $charset) !== 1
+            || preg_match($validIdentifierPattern, $collation) !== 1
+        ) {
+            return null;
+        }
+
+        return [
+            'charset' => $charset,
+            'collation' => $collation,
+        ];
     }
 
     private function installTabs(): bool
