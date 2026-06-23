@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace B2B\PriceImport\Service;
 
-use B2B\PriceImport\Dto\ImportCreateData;
+use B2B\PriceImport\DTO\ImportCreateData;
 use B2B\PriceImport\Repository\ImportRepository;
 use DirectoryIterator;
 use RuntimeException;

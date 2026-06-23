@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace B2B\PriceImport\Repository;
 
 use B2B\PriceImport\Constant\ImportStatus;
-use B2B\PriceImport\Dto\ImportCreateData;
+use B2B\PriceImport\DTO\ImportCreateData;
 use Db;
 use DbQuery;
 use RuntimeException;
