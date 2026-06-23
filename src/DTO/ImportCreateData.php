@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace B2B\PriceImport\Dto;
+namespace B2B\PriceImport\DTO;
 
 final class ImportCreateData
 {
