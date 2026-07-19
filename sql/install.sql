@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS `PREFIX_b2b_discount_rule` (
     KEY `idx_manufacturer` (`id_manufacturer`),
     KEY `idx_group` (`id_group`),
     KEY `idx_active` (`active`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ) ENGINE=InnoDB DEFAULT CHARSET=DB_CHARSET COLLATE=DB_COLLATION;
 
 
 /**
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS `PREFIX_b2b_import` (
     KEY `source` (`source`),
     KEY `file_hash` (`file_hash`),
     KEY `date_add` (`date_add`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ) ENGINE=InnoDB DEFAULT CHARSET=DB_CHARSET COLLATE=DB_COLLATION;
 
 
 /**
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS `PREFIX_b2b_import_job` (
     KEY `id_b2b_import` (`id_b2b_import`),
     KEY `import_type_status` (`id_b2b_import`, `type`, `status`),
     KEY `status_priority` (`status`, `priority`, `date_add`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ) ENGINE=InnoDB DEFAULT CHARSET=DB_CHARSET COLLATE=DB_COLLATION;
 
 
 /**
@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS `PREFIX_b2b_import_item` (
     KEY `reference` (`reference`),
     KEY `row_number` (`row_number`)
 
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ) ENGINE=InnoDB DEFAULT CHARSET=DB_CHARSET COLLATE=DB_COLLATION;
 
 
 /**
@@ -169,7 +169,7 @@ CREATE TABLE IF NOT EXISTS `PREFIX_b2b_import_price_staging` (
     KEY `validation_status` (`validation_status`),
     KEY `processing_status` (`processing_status`)
 
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ) ENGINE=InnoDB DEFAULT CHARSET=DB_CHARSET COLLATE=DB_COLLATION;
 
 
 
@@ -185,8 +185,7 @@ CREATE TABLE IF NOT EXISTS `PREFIX_b2b_import_lock` (
     PRIMARY KEY (`lock_name`),
     KEY `expires_at` (`expires_at`)
 
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
+    ) ENGINE=InnoDB DEFAULT CHARSET=DB_CHARSET COLLATE=DB_COLLATION;
 
 
 
