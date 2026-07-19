@@ -26,45 +26,51 @@ final class PriceImportProcessor
             throw new RuntimeException('Import not found.');
         }
 
+        $limit = max(1, $limit);
         $repository->setStatus($idImport, ImportStatus::PROCESSING);
 
         $processed = 0;
         $errors = 0;
+        $batches = 0;
 
-        foreach ($repository->getPendingStagingRows($idImport, $limit) as $row) {
-            $idStaging = (int) $row['id_b2b_import_price_staging'];
-            $idItem = (int) $row['id_b2b_import_item'];
+        while (true) {
+            $rows = $repository->getPendingStagingRows($idImport, $limit);
 
-            try {
-                $idProduct = (int) $row['id_product'];
-                $priceUah = (float) $row['price_uah'];
-                $active = $row['active'] !== null ? (int) $row['active'] : null;
+            if ($rows === []) {
+                break;
+            }
 
-                $updater->applyDiscountMatrix($idProduct, $priceUah);
-                $updater->updateProduct($idProduct, $priceUah, $active);
+            $batches++;
 
-                $repository->markRowProcessed($idStaging, $idItem);
-                $processed++;
-            } catch (Throwable $exception) {
-                $repository->markRowFailed($idStaging, $idItem, 'PROCESSING_ERROR', $exception->getMessage());
-                $errors++;
+            foreach ($rows as $row) {
+                $idStaging = (int) $row['id_b2b_import_price_staging'];
+                $idItem = (int) $row['id_b2b_import_item'];
+
+                try {
+                    $idProduct = (int) $row['id_product'];
+                    $priceUah = (float) $row['price_uah'];
+                    $active = $row['active'] !== null ? (int) $row['active'] : null;
+
+                    $updater->applyDiscountMatrix($idProduct, $priceUah);
+                    $updater->updateProduct($idProduct, $priceUah, $active);
+
+                    $repository->markRowProcessed($idStaging, $idItem);
+                    $processed++;
+                } catch (Throwable $exception) {
+                    $repository->markRowFailed($idStaging, $idItem, 'PROCESSING_ERROR', $exception->getMessage());
+                    $errors++;
+                }
             }
         }
 
         $repository->refreshStats($idImport);
-
-        $hasMore = $repository->getPendingStagingRows($idImport, 1) !== [];
-
-        if ($hasMore) {
-            $repository->setStatus($idImport, ImportStatus::PROCESSING);
-        } else {
-            $repository->setStatus($idImport, $errors > 0 ? ImportStatus::FAILED : ImportStatus::FINISHED);
-        }
+        $repository->setStatus($idImport, $errors > 0 ? ImportStatus::FAILED : ImportStatus::FINISHED);
 
         return [
             'processed' => $processed,
             'failed' => $errors,
-            'has_more' => $hasMore,
+            'batches' => $batches,
+            'has_more' => false,
         ];
     }
 }
