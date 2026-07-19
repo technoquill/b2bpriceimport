@@ -52,8 +52,19 @@ final class PriceImportProcessor
         }
 
         $repository->refreshStats($idImport);
-        $repository->setStatus($idImport, $errors > 0 ? ImportStatus::FAILED : ImportStatus::FINISHED);
 
-        return ['processed' => $processed, 'failed' => $errors];
+        $hasMore = $repository->getPendingStagingRows($idImport, 1) !== [];
+
+        if ($hasMore) {
+            $repository->setStatus($idImport, ImportStatus::PROCESSING);
+        } else {
+            $repository->setStatus($idImport, $errors > 0 ? ImportStatus::FAILED : ImportStatus::FINISHED);
+        }
+
+        return [
+            'processed' => $processed,
+            'failed' => $errors,
+            'has_more' => $hasMore,
+        ];
     }
 }
