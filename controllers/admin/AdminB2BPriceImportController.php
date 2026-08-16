@@ -18,6 +18,13 @@ class AdminB2BPriceImportController extends ModuleAdminController
 {
     private const IMPORT_ITEMS_PAGE_SIZES = [20, 50, 100, 300, 1000];
     private const DEFAULT_IMPORT_ITEMS_PAGE_SIZE = 50;
+    private const IMPORT_ITEM_FILTER_PARAMETERS = [
+        'active' => 'items_active',
+        'validation_status' => 'items_validation',
+        'processing_status' => 'items_processing',
+        'item_status' => 'items_status',
+        'error' => 'items_error',
+    ];
 
     public function __construct()
     {
@@ -73,13 +80,17 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $pageSize = self::DEFAULT_IMPORT_ITEMS_PAGE_SIZE;
                 }
 
-                $statusOrder = strtolower((string) Tools::getValue('items_status_order', 'asc'));
+                $filterValues = [];
 
-                if (!in_array($statusOrder, ['asc', 'desc'], true)) {
-                    $statusOrder = 'asc';
+                foreach (array_keys(self::IMPORT_ITEM_FILTER_PARAMETERS) as $filter) {
+                    $filterValues[$filter] = $repository->getImportItemFilterValues($idImport, $filter);
                 }
 
-                $totalItems = $repository->countImportItems($idImport);
+                $selectedFilters = $this->resolveImportItemFilters($filterValues);
+                $unfilteredTotalItems = $repository->countImportItems($idImport);
+                $totalItems = empty($selectedFilters)
+                    ? $unfilteredTotalItems
+                    : $repository->countImportItems($idImport, $selectedFilters);
                 $totalPages = max(1, (int) ceil($totalItems / $pageSize));
                 $currentPage = max(1, (int) Tools::getValue('items_page', 1));
                 $currentPage = min($currentPage, $totalPages);
@@ -89,7 +100,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $idImport,
                     $pageSize,
                     $offset,
-                    $statusOrder
+                    $selectedFilters
                 );
                 $assign['importItemsPagination'] = $this->buildImportItemsPagination(
                     $baseUrl,
@@ -98,11 +109,21 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $pageSize,
                     $totalItems,
                     $totalPages,
-                    $statusOrder
+                    $selectedFilters
                 );
+                $assign['importItemsFilters'] = $this->buildImportItemFilterSelects(
+                    $baseUrl,
+                    $idImport,
+                    $pageSize,
+                    $filterValues,
+                    $selectedFilters
+                );
+                $assign['importItemsHasRows'] = $unfilteredTotalItems > 0;
             } else {
                 $assign['importItems'] = [];
                 $assign['importItemsPagination'] = [];
+                $assign['importItemsFilters'] = [];
+                $assign['importItemsHasRows'] = false;
             }
         }
 
@@ -384,7 +405,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
         int $pageSize,
         int $totalItems,
         int $totalPages,
-        string $statusOrder
+        array $selectedFilters
     ): array
     {
         $visiblePageNumbers = [1, $totalPages];
@@ -415,7 +436,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $idImport,
                     $pageNumber,
                     $pageSize,
-                    $statusOrder
+                    $selectedFilters
                 ),
             ];
             $previousVisiblePage = $pageNumber;
@@ -427,7 +448,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $pageSizeOptions[] = [
                 'value' => $size,
                 'is_current' => $size === $pageSize,
-                'url' => $this->buildImportItemsUrl($baseUrl, $idImport, 1, $size, $statusOrder),
+                'url' => $this->buildImportItemsUrl($baseUrl, $idImport, 1, $size, $selectedFilters),
             ];
         }
 
@@ -445,7 +466,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $idImport,
                     $currentPage - 1,
                     $pageSize,
-                    $statusOrder
+                    $selectedFilters
                 )
                 : null,
             'next_url' => $currentPage < $totalPages
@@ -454,18 +475,106 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $idImport,
                     $currentPage + 1,
                     $pageSize,
-                    $statusOrder
+                    $selectedFilters
                 )
                 : null,
-            'status_order' => $statusOrder,
-            'status_sort_url' => $this->buildImportItemsUrl(
-                $baseUrl,
-                $idImport,
-                1,
-                $pageSize,
-                $statusOrder === 'asc' ? 'desc' : 'asc'
-            ),
         ];
+    }
+
+    private function resolveImportItemFilters(array $filterValues): array
+    {
+        $selectedFilters = [];
+
+        foreach (self::IMPORT_ITEM_FILTER_PARAMETERS as $filter => $parameter) {
+            $requestedToken = Tools::getValue($parameter, '');
+
+            if (!is_string($requestedToken) || $requestedToken === '') {
+                continue;
+            }
+
+            foreach ($filterValues[$filter] ?? [] as $value) {
+                if (hash_equals($this->getImportItemFilterToken($filter, $value), $requestedToken)) {
+                    $selectedFilters[$filter] = $value;
+                    break;
+                }
+            }
+        }
+
+        return $selectedFilters;
+    }
+
+    private function buildImportItemFilterSelects(
+        string $baseUrl,
+        int $idImport,
+        int $pageSize,
+        array $filterValues,
+        array $selectedFilters
+    ): array
+    {
+        $selects = [];
+
+        foreach (array_keys(self::IMPORT_ITEM_FILTER_PARAMETERS) as $filter) {
+            $filtersWithoutCurrent = $selectedFilters;
+            unset($filtersWithoutCurrent[$filter]);
+
+            $select = [
+                'all_url' => $this->buildImportItemsUrl(
+                    $baseUrl,
+                    $idImport,
+                    1,
+                    $pageSize,
+                    $filtersWithoutCurrent
+                ),
+                'is_all' => !array_key_exists($filter, $selectedFilters),
+                'options' => [],
+            ];
+
+            foreach ($filterValues[$filter] ?? [] as $value) {
+                $optionFilters = $selectedFilters;
+                $optionFilters[$filter] = $value;
+
+                $select['options'][] = [
+                    'label' => $this->getImportItemFilterLabel($filter, $value),
+                    'is_current' => array_key_exists($filter, $selectedFilters)
+                        && $selectedFilters[$filter] === $value,
+                    'url' => $this->buildImportItemsUrl(
+                        $baseUrl,
+                        $idImport,
+                        1,
+                        $pageSize,
+                        $optionFilters
+                    ),
+                ];
+            }
+
+            $selects[$filter] = $select;
+        }
+
+        return $selects;
+    }
+
+    private function getImportItemFilterLabel(string $filter, string $value): string
+    {
+        if ($value === '') {
+            return $filter === 'error' ? $this->l('No error') : $this->l('Empty');
+        }
+
+        if ($filter === 'active') {
+            if ($value === '1') {
+                return $this->l('Yes');
+            }
+
+            if ($value === '0') {
+                return $this->l('No');
+            }
+        }
+
+        return $value;
+    }
+
+    private function getImportItemFilterToken(string $filter, string $value): string
+    {
+        return hash('sha256', $filter . "\0" . $value);
     }
 
     private function buildImportItemsUrl(
@@ -473,15 +582,25 @@ class AdminB2BPriceImportController extends ModuleAdminController
         int $idImport,
         int $page,
         int $pageSize,
-        string $statusOrder
+        array $selectedFilters
     ): string
     {
-        return $baseUrl
+        $url = $baseUrl
             . '&section=import_detail'
             . '&id_import=' . $idImport
             . '&items_page=' . $page
-            . '&items_per_page=' . $pageSize
-            . '&items_status_order=' . $statusOrder;
+            . '&items_per_page=' . $pageSize;
+
+        foreach (self::IMPORT_ITEM_FILTER_PARAMETERS as $filter => $parameter) {
+            if (!array_key_exists($filter, $selectedFilters)) {
+                continue;
+            }
+
+            $url .= '&' . $parameter . '='
+                . $this->getImportItemFilterToken($filter, $selectedFilters[$filter]);
+        }
+
+        return $url;
     }
 
     private function getCustomerGroups(): array
