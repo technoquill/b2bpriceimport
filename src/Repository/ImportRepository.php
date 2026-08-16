@@ -148,6 +148,7 @@ final class ImportRepository
             ii.date_add,
             ii.date_upd,
             ps.id_product,
+            ps.product_name,
             ps.source_price,
             ps.currency_code,
             ps.currency_rate,
@@ -255,7 +256,7 @@ final class ImportRepository
         $data['date_add'] = $now;
         $data['date_upd'] = $now;
 
-        foreach (['reference', 'currency_code', 'validation_status', 'processing_status', 'error_code', 'error_message'] as $key) {
+        foreach (['reference', 'product_name', 'currency_code', 'validation_status', 'processing_status', 'error_code', 'error_message'] as $key) {
             if (array_key_exists($key, $data) && $data[$key] !== null) {
                 $data[$key] = pSQL((string) $data[$key]);
             }

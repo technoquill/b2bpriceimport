@@ -143,6 +143,7 @@ CREATE TABLE IF NOT EXISTS `PREFIX_b2b_import_price_staging` (
         `id_b2b_import_item` BIGINT UNSIGNED NOT NULL,
 
         `reference` VARCHAR(128) NOT NULL,
+        `product_name` VARCHAR(255) DEFAULT NULL,
         `id_product` INT UNSIGNED DEFAULT NULL,
 
         `source_price` DECIMAL(20,6) DEFAULT NULL,
@@ -186,7 +187,6 @@ CREATE TABLE IF NOT EXISTS `PREFIX_b2b_import_lock` (
     KEY `expires_at` (`expires_at`)
 
     ) ENGINE=InnoDB DEFAULT CHARSET=DB_CHARSET COLLATE=DB_COLLATION;
-
 
 
 

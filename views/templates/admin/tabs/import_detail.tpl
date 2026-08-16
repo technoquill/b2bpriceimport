@@ -118,6 +118,7 @@
                     <tr>
                         <th>{l s='Row' mod='b2bpriceimport'}</th>
                         <th>{l s='Reference' mod='b2bpriceimport'}</th>
+                        <th>{l s='Product name' mod='b2bpriceimport'}</th>
                         <th>{l s='Product ID' mod='b2bpriceimport'}</th>
                         <th>{l s='Source price' mod='b2bpriceimport'}</th>
                         <th>{l s='Currency' mod='b2bpriceimport'}</th>
@@ -135,6 +136,7 @@
                         <tr class="{if $item.status == 'failed' || $item.validation_status == 'failed' || $item.processing_status == 'failed'}danger{elseif $item.status == 'processed' || $item.processing_status == 'processed'}success{/if}">
                             <td>{$item.row_number|intval}</td>
                             <td>{$item.reference|escape:'html':'UTF-8'}</td>
+                            <td>{$item.product_name|escape:'html':'UTF-8'}</td>
                             <td>{$item.id_product|intval}</td>
                             <td>{$item.source_price|escape:'html':'UTF-8'}</td>
                             <td>{$item.currency_code|escape:'html':'UTF-8'}</td>

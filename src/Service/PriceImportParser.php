@@ -67,6 +67,7 @@ final class PriceImportParser
                     'id_b2b_import' => $idImport,
                     'id_b2b_import_item' => $idItem,
                     'reference' => $normalized['reference'],
+                    'product_name' => $normalized['name'],
                     'id_product' => $idProduct,
                     'source_price' => $normalized['price'],
                     'currency_code' => $normalized['currency'],
@@ -79,8 +80,10 @@ final class PriceImportParser
 
                 $valid++;
             } catch (Throwable $exception) {
-                $reference = isset($record['reference']) ? trim((string) $record['reference']) : null;
+                $reference = $this->getRecordValue($record, 'reference');
                 $reference = $reference !== '' ? $reference : null;
+                $productName = $this->getRecordValue($record, 'name');
+                $productName = $productName !== '' ? $productName : null;
 
                 $idItem = $repository->addItem(
                     $idImport,
@@ -96,6 +99,7 @@ final class PriceImportParser
                     'id_b2b_import' => $idImport,
                     'id_b2b_import_item' => $idItem,
                     'reference' => $reference ?: 'row_' . $rowNumber,
+                    'product_name' => $productName,
                     'id_product' => null,
                     'source_price' => null,
                     'currency_code' => null,
@@ -139,7 +143,7 @@ final class PriceImportParser
     {
         $header = array_map(static fn ($value): string => strtolower(trim((string) $value)), $header);
 
-        foreach (['reference', 'price', 'currency', 'currency_rate', 'active'] as $column) {
+        foreach (['reference', 'price', 'currency', 'currency_rate', 'active', 'name'] as $column) {
             if (!in_array($column, $header, true)) {
                 throw new RuntimeException('Missing required CSV column: ' . $column);
             }
@@ -157,6 +161,8 @@ final class PriceImportParser
         if ($reference === '') {
             throw new RuntimeException('Reference is empty.');
         }
+
+        $productName = trim((string) ($row['name'] ?? ''));
 
         $price = $this->normalizeDecimal($row['price'] ?? null, 'price', $reference, true);
         $currencyRate = $this->normalizeDecimal($row['currency_rate'] ?? null, 'currency_rate', $reference, false);
@@ -181,11 +187,23 @@ final class PriceImportParser
 
         return [
             'reference' => $reference,
+            'name' => $productName,
             'price' => $price,
             'currency' => $currency,
             'currency_rate' => $currencyRate,
             'active' => (int) $activeRaw,
         ];
+    }
+
+    private function getRecordValue(array $record, string $column): string
+    {
+        foreach ($record as $key => $value) {
+            if (strtolower(trim((string) $key)) === $column) {
+                return trim((string) $value);
+            }
+        }
+
+        return '';
     }
 
     private function normalizeDecimal($value, string $fieldName, string $reference, bool $allowZero): float
