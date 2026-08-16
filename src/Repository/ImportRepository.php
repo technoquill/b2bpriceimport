@@ -134,8 +134,27 @@ final class ImportRepository
         return is_array($rows) ? $rows : [];
     }
 
-    public function getImportItems(int $idImport, int $limit = 1000): array
+    public function countImportItems(int $idImport): int
     {
+        $query = new DbQuery();
+        $query->select('COUNT(*)');
+        $query->from('b2b_import_item');
+        $query->where('id_b2b_import = ' . (int) $idImport);
+
+        return (int) Db::getInstance()->getValue($query);
+    }
+
+    public function getImportItems(
+        int $idImport,
+        int $limit = 50,
+        int $offset = 0,
+        string $statusOrder = 'ASC'
+    ): array
+    {
+        $limit = max(1, $limit);
+        $offset = max(0, $offset);
+        $statusOrder = strtoupper($statusOrder) === 'DESC' ? 'DESC' : 'ASC';
+
         $query = new DbQuery();
         $query->select('
             ii.id_b2b_import_item,
@@ -166,8 +185,8 @@ final class ImportRepository
             'ps.id_b2b_import_item = ii.id_b2b_import_item'
         );
         $query->where('ii.id_b2b_import = ' . (int) $idImport);
-        $query->orderBy('ii.row_number ASC, ii.id_b2b_import_item ASC');
-        $query->limit($limit);
+        $query->orderBy('ii.status ' . $statusOrder . ', ii.row_number ASC, ii.id_b2b_import_item ASC');
+        $query->limit($limit, $offset);
 
         $rows = Db::getInstance()->executeS($query);
 
