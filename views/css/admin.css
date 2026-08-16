@@ -2,6 +2,67 @@
     margin-top: 20px;
 }
 
+body.b2b-import-processing {
+    overflow: hidden;
+}
+
+.b2b-import-processing-overlay {
+    position: fixed;
+    z-index: 100000;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(27, 36, 44, 0.72);
+}
+
+.b2b-import-processing-overlay.hidden {
+    display: none !important;
+}
+
+.b2b-import-processing-dialog {
+    width: 100%;
+    max-width: 520px;
+    padding: 32px;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    text-align: center;
+}
+
+.b2b-import-processing-dialog h3 {
+    margin: 18px 0 10px;
+}
+
+.b2b-import-processing-spinner {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto;
+    border: 5px solid #d9edf7;
+    border-top-color: #25b9d7;
+    border-radius: 50%;
+    animation: b2b-import-processing-spin 0.85s linear infinite;
+}
+
+.b2b-import-processing-progress {
+    height: 10px;
+    margin: 22px 0 12px;
+}
+
+.b2b-import-processing-dialog .help-block {
+    margin-bottom: 0;
+}
+
+@keyframes b2b-import-processing-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .b2b-import-items-panel .b2b-import-items-toolbar {
     margin-bottom: 15px;
 }
