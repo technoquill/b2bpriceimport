@@ -117,8 +117,48 @@
                 <thead>
                     <tr>
                         <th>{l s='Row' mod='b2bpriceimport'}</th>
-                        <th>{l s='Reference' mod='b2bpriceimport'}</th>
-                        <th>{l s='Product name' mod='b2bpriceimport'}</th>
+                        <th>
+                            <div>{l s='Reference' mod='b2bpriceimport'}</div>
+                            <div class="input-group" style="min-width: 150px;">
+                                <input id="import-items-reference-search"
+                                       type="search"
+                                       class="form-control input-sm js-import-items-search"
+                                       value="{$importItemsSearches.reference.value|escape:'html':'UTF-8'}"
+                                       data-base-url="{$importItemsSearches.reference.base_url|escape:'html':'UTF-8'}"
+                                       data-parameter="{$importItemsSearches.reference.parameter|escape:'html':'UTF-8'}"
+                                       placeholder="{l s='Search...' mod='b2bpriceimport'}"
+                                       aria-label="{l s='Search by reference' mod='b2bpriceimport'}">
+                                <span class="input-group-btn">
+                                    <button type="button"
+                                            class="btn btn-default btn-sm js-import-items-search-submit"
+                                            data-search-input="import-items-reference-search"
+                                            title="{l s='Search by reference' mod='b2bpriceimport'}">
+                                        <i class="icon-search"></i>
+                                    </button>
+                                </span>
+                            </div>
+                        </th>
+                        <th>
+                            <div>{l s='Product name' mod='b2bpriceimport'}</div>
+                            <div class="input-group" style="min-width: 200px;">
+                                <input id="import-items-product-name-search"
+                                       type="search"
+                                       class="form-control input-sm js-import-items-search"
+                                       value="{$importItemsSearches.product_name.value|escape:'html':'UTF-8'}"
+                                       data-base-url="{$importItemsSearches.product_name.base_url|escape:'html':'UTF-8'}"
+                                       data-parameter="{$importItemsSearches.product_name.parameter|escape:'html':'UTF-8'}"
+                                       placeholder="{l s='Search...' mod='b2bpriceimport'}"
+                                       aria-label="{l s='Search by product name' mod='b2bpriceimport'}">
+                                <span class="input-group-btn">
+                                    <button type="button"
+                                            class="btn btn-default btn-sm js-import-items-search-submit"
+                                            data-search-input="import-items-product-name-search"
+                                            title="{l s='Search by product name' mod='b2bpriceimport'}">
+                                        <i class="icon-search"></i>
+                                    </button>
+                                </span>
+                            </div>
+                        </th>
                         <th>{l s='Product ID' mod='b2bpriceimport'}</th>
                         <th>{l s='Source price' mod='b2bpriceimport'}</th>
                         <th>{l s='Currency' mod='b2bpriceimport'}</th>
@@ -308,4 +348,45 @@
             </div>
         {/if}
     </div>
+
+    <script>
+        (function () {
+            function applyImportItemsSearch(input) {
+                var url = input.getAttribute('data-base-url');
+                var parameter = input.getAttribute('data-parameter');
+                var value = input.value.trim();
+
+                if (value !== '') {
+                    url += '&' + encodeURIComponent(parameter) + '=' + encodeURIComponent(value);
+                }
+
+                window.location.href = url;
+            }
+
+            Array.prototype.forEach.call(
+                document.querySelectorAll('.js-import-items-search'),
+                function (input) {
+                    input.addEventListener('keydown', function (event) {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            applyImportItemsSearch(this);
+                        }
+                    });
+                }
+            );
+
+            Array.prototype.forEach.call(
+                document.querySelectorAll('.js-import-items-search-submit'),
+                function (button) {
+                    button.addEventListener('click', function () {
+                        var input = document.getElementById(this.getAttribute('data-search-input'));
+
+                        if (input) {
+                            applyImportItemsSearch(input);
+                        }
+                    });
+                }
+            );
+        })();
+    </script>
 {/if}

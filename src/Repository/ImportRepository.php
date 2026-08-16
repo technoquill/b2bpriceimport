@@ -178,7 +178,7 @@ final class ImportRepository
         );
     }
 
-    public function countImportItems(int $idImport, array $filters = []): int
+    public function countImportItems(int $idImport, array $filters = [], array $searchTerms = []): int
     {
         $query = new DbQuery();
         $query->select('COUNT(*)');
@@ -190,6 +190,7 @@ final class ImportRepository
         );
         $query->where('ii.id_b2b_import = ' . (int) $idImport);
         $this->applyImportItemFilters($query, $filters);
+        $this->applyImportItemSearchTerms($query, $searchTerms);
 
         return (int) Db::getInstance()->getValue($query);
     }
@@ -198,7 +199,8 @@ final class ImportRepository
         int $idImport,
         int $limit = 50,
         int $offset = 0,
-        array $filters = []
+        array $filters = [],
+        array $searchTerms = []
     ): array
     {
         $limit = max(1, $limit);
@@ -235,6 +237,7 @@ final class ImportRepository
         );
         $query->where('ii.id_b2b_import = ' . (int) $idImport);
         $this->applyImportItemFilters($query, $filters);
+        $this->applyImportItemSearchTerms($query, $searchTerms);
         $query->orderBy('ii.row_number ASC, ii.id_b2b_import_item ASC');
         $query->limit($limit, $offset);
 
@@ -272,6 +275,24 @@ final class ImportRepository
     private function getImportItemErrorExpression(): string
     {
         return "COALESCE(NULLIF(ii.error_message, ''), NULLIF(ps.error_message, ''))";
+    }
+
+    private function applyImportItemSearchTerms(DbQuery $query, array $searchTerms): void
+    {
+        $searchExpressions = [
+            'reference' => 'ii.reference',
+            'product_name' => 'ps.product_name',
+        ];
+
+        foreach ($searchTerms as $search => $value) {
+            if (!isset($searchExpressions[$search]) || !is_string($value) || $value === '') {
+                continue;
+            }
+
+            $query->where(
+                "LOCATE('" . pSQL($value) . "', COALESCE(" . $searchExpressions[$search] . ", '')) > 0"
+            );
+        }
     }
 
     public function getImportJobs(int $idImport): array

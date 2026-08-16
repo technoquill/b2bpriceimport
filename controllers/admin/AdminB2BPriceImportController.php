@@ -25,6 +25,14 @@ class AdminB2BPriceImportController extends ModuleAdminController
         'item_status' => 'items_status',
         'error' => 'items_error',
     ];
+    private const IMPORT_ITEM_SEARCH_PARAMETERS = [
+        'reference' => 'items_reference_search',
+        'product_name' => 'items_product_name_search',
+    ];
+    private const IMPORT_ITEM_SEARCH_MAX_LENGTHS = [
+        'reference' => 128,
+        'product_name' => 255,
+    ];
 
     public function __construct()
     {
@@ -87,10 +95,11 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 }
 
                 $selectedFilters = $this->resolveImportItemFilters($filterValues);
+                $searchTerms = $this->resolveImportItemSearchTerms();
                 $unfilteredTotalItems = $repository->countImportItems($idImport);
-                $totalItems = empty($selectedFilters)
+                $totalItems = empty($selectedFilters) && empty($searchTerms)
                     ? $unfilteredTotalItems
-                    : $repository->countImportItems($idImport, $selectedFilters);
+                    : $repository->countImportItems($idImport, $selectedFilters, $searchTerms);
                 $totalPages = max(1, (int) ceil($totalItems / $pageSize));
                 $currentPage = max(1, (int) Tools::getValue('items_page', 1));
                 $currentPage = min($currentPage, $totalPages);
@@ -100,7 +109,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $idImport,
                     $pageSize,
                     $offset,
-                    $selectedFilters
+                    $selectedFilters,
+                    $searchTerms
                 );
                 $assign['importItemsPagination'] = $this->buildImportItemsPagination(
                     $baseUrl,
@@ -109,20 +119,30 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $pageSize,
                     $totalItems,
                     $totalPages,
-                    $selectedFilters
+                    $selectedFilters,
+                    $searchTerms
                 );
                 $assign['importItemsFilters'] = $this->buildImportItemFilterSelects(
                     $baseUrl,
                     $idImport,
                     $pageSize,
                     $filterValues,
-                    $selectedFilters
+                    $selectedFilters,
+                    $searchTerms
+                );
+                $assign['importItemsSearches'] = $this->buildImportItemSearchControls(
+                    $baseUrl,
+                    $idImport,
+                    $pageSize,
+                    $selectedFilters,
+                    $searchTerms
                 );
                 $assign['importItemsHasRows'] = $unfilteredTotalItems > 0;
             } else {
                 $assign['importItems'] = [];
                 $assign['importItemsPagination'] = [];
                 $assign['importItemsFilters'] = [];
+                $assign['importItemsSearches'] = [];
                 $assign['importItemsHasRows'] = false;
             }
         }
@@ -405,7 +425,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
         int $pageSize,
         int $totalItems,
         int $totalPages,
-        array $selectedFilters
+        array $selectedFilters,
+        array $searchTerms
     ): array
     {
         $visiblePageNumbers = [1, $totalPages];
@@ -436,7 +457,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $idImport,
                     $pageNumber,
                     $pageSize,
-                    $selectedFilters
+                    $selectedFilters,
+                    $searchTerms
                 ),
             ];
             $previousVisiblePage = $pageNumber;
@@ -448,7 +470,14 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $pageSizeOptions[] = [
                 'value' => $size,
                 'is_current' => $size === $pageSize,
-                'url' => $this->buildImportItemsUrl($baseUrl, $idImport, 1, $size, $selectedFilters),
+                'url' => $this->buildImportItemsUrl(
+                    $baseUrl,
+                    $idImport,
+                    1,
+                    $size,
+                    $selectedFilters,
+                    $searchTerms
+                ),
             ];
         }
 
@@ -466,7 +495,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $idImport,
                     $currentPage - 1,
                     $pageSize,
-                    $selectedFilters
+                    $selectedFilters,
+                    $searchTerms
                 )
                 : null,
             'next_url' => $currentPage < $totalPages
@@ -475,7 +505,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $idImport,
                     $currentPage + 1,
                     $pageSize,
-                    $selectedFilters
+                    $selectedFilters,
+                    $searchTerms
                 )
                 : null,
         ];
@@ -503,12 +534,40 @@ class AdminB2BPriceImportController extends ModuleAdminController
         return $selectedFilters;
     }
 
+    private function resolveImportItemSearchTerms(): array
+    {
+        $searchTerms = [];
+
+        foreach (self::IMPORT_ITEM_SEARCH_PARAMETERS as $search => $parameter) {
+            $value = Tools::getValue($parameter, '');
+
+            if (!is_string($value)) {
+                continue;
+            }
+
+            $value = trim($value);
+
+            if ($value === '') {
+                continue;
+            }
+
+            $searchTerms[$search] = Tools::substr(
+                $value,
+                0,
+                self::IMPORT_ITEM_SEARCH_MAX_LENGTHS[$search]
+            );
+        }
+
+        return $searchTerms;
+    }
+
     private function buildImportItemFilterSelects(
         string $baseUrl,
         int $idImport,
         int $pageSize,
         array $filterValues,
-        array $selectedFilters
+        array $selectedFilters,
+        array $searchTerms
     ): array
     {
         $selects = [];
@@ -523,7 +582,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $idImport,
                     1,
                     $pageSize,
-                    $filtersWithoutCurrent
+                    $filtersWithoutCurrent,
+                    $searchTerms
                 ),
                 'is_all' => !array_key_exists($filter, $selectedFilters),
                 'options' => [],
@@ -542,7 +602,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
                         $idImport,
                         1,
                         $pageSize,
-                        $optionFilters
+                        $optionFilters,
+                        $searchTerms
                     ),
                 ];
             }
@@ -551,6 +612,37 @@ class AdminB2BPriceImportController extends ModuleAdminController
         }
 
         return $selects;
+    }
+
+    private function buildImportItemSearchControls(
+        string $baseUrl,
+        int $idImport,
+        int $pageSize,
+        array $selectedFilters,
+        array $searchTerms
+    ): array
+    {
+        $controls = [];
+
+        foreach (self::IMPORT_ITEM_SEARCH_PARAMETERS as $search => $parameter) {
+            $otherSearchTerms = $searchTerms;
+            unset($otherSearchTerms[$search]);
+
+            $controls[$search] = [
+                'value' => $searchTerms[$search] ?? '',
+                'parameter' => $parameter,
+                'base_url' => $this->buildImportItemsUrl(
+                    $baseUrl,
+                    $idImport,
+                    1,
+                    $pageSize,
+                    $selectedFilters,
+                    $otherSearchTerms
+                ),
+            ];
+        }
+
+        return $controls;
     }
 
     private function getImportItemFilterLabel(string $filter, string $value): string
@@ -582,7 +674,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
         int $idImport,
         int $page,
         int $pageSize,
-        array $selectedFilters
+        array $selectedFilters,
+        array $searchTerms
     ): string
     {
         $url = $baseUrl
@@ -598,6 +691,14 @@ class AdminB2BPriceImportController extends ModuleAdminController
 
             $url .= '&' . $parameter . '='
                 . $this->getImportItemFilterToken($filter, $selectedFilters[$filter]);
+        }
+
+        foreach (self::IMPORT_ITEM_SEARCH_PARAMETERS as $search => $parameter) {
+            if (!isset($searchTerms[$search]) || $searchTerms[$search] === '') {
+                continue;
+            }
+
+            $url .= '&' . $parameter . '=' . rawurlencode($searchTerms[$search]);
         }
 
         return $url;
