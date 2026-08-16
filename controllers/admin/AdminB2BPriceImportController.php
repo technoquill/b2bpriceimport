@@ -41,6 +41,13 @@ class AdminB2BPriceImportController extends ModuleAdminController
         parent::__construct();
     }
 
+    public function setMedia()
+    {
+        parent::setMedia();
+
+        $this->addCSS($this->module->getPathUri() . 'views/css/admin.css');
+    }
+
     public function initContent()
     {
         parent::initContent();
@@ -137,12 +144,23 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     $selectedFilters,
                     $searchTerms
                 );
+                $assign['importItemsResetUrl'] = $this->buildImportItemsUrl(
+                    $baseUrl,
+                    $idImport,
+                    1,
+                    $pageSize,
+                    [],
+                    []
+                );
+                $assign['importItemsHasActiveCriteria'] = !empty($selectedFilters) || !empty($searchTerms);
                 $assign['importItemsHasRows'] = $unfilteredTotalItems > 0;
             } else {
                 $assign['importItems'] = [];
                 $assign['importItemsPagination'] = [];
                 $assign['importItemsFilters'] = [];
                 $assign['importItemsSearches'] = [];
+                $assign['importItemsResetUrl'] = '';
+                $assign['importItemsHasActiveCriteria'] = false;
                 $assign['importItemsHasRows'] = false;
             }
         }
