@@ -16,6 +16,7 @@ use B2B\PriceImport\Service\PriceImportProcessor;
 
 class AdminB2BPriceImportController extends ModuleAdminController
 {
+    private const EXISTING_IMPORT_FILE_LIMIT = 200;
     private const IMPORT_ITEMS_PAGE_SIZES = [20, 50, 100, 300, 1000];
     private const DEFAULT_IMPORT_ITEMS_PAGE_SIZE = 50;
     private const IMPORT_ITEM_FILTER_PARAMETERS = [
@@ -74,7 +75,12 @@ class AdminB2BPriceImportController extends ModuleAdminController
         }
 
         if ($activeSection === 'import') {
-            $assign['imports'] = $this->getImportRepository()->getLastImports(20);
+            $repository = $this->getImportRepository();
+
+            $assign['imports'] = $repository->getLastImports(20);
+            $assign['existingImportFiles'] = $this->getExistingImportFiles(
+                $repository->getLastImports(self::EXISTING_IMPORT_FILE_LIMIT)
+            );
         }
 
         if ($activeSection === 'import_detail') {
@@ -434,6 +440,28 @@ class AdminB2BPriceImportController extends ModuleAdminController
     private function getImportRepository(): ImportRepository
     {
         return new ImportRepository();
+    }
+
+    private function getExistingImportFiles(array $imports): array
+    {
+        $files = [];
+
+        foreach ($imports as $import) {
+            $filePath = trim((string) ($import['file_path'] ?? ''));
+
+            if (
+                $filePath === ''
+                || strtolower((string) pathinfo($filePath, PATHINFO_EXTENSION)) !== 'csv'
+                || !is_file($filePath)
+                || !is_readable($filePath)
+            ) {
+                continue;
+            }
+
+            $files[] = $import;
+        }
+
+        return $files;
     }
 
     private function buildImportItemsPagination(
