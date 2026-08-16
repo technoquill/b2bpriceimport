@@ -316,6 +316,72 @@ class AdminB2BPriceImportController extends ModuleAdminController
         }
     }
 
+    public function ajaxProcessRunStoredImport()
+    {
+        header('Content-Type: application/json');
+
+        $storedFilename = (string) Tools::getValue('stored_filename');
+        $idImport = 0;
+
+        try {
+            $employeeId = isset($this->context->employee->id) ? (int) $this->context->employee->id : null;
+            $createData = (new ImportFileStorageService())->createDataFromStoredCsv(
+                $storedFilename,
+                $employeeId
+            );
+
+            $repository = $this->getImportRepository();
+            $import = $repository->findByFilePath((string) $createData->filePath);
+
+            if ($import === null && $createData->fileHash !== null) {
+                $importWithSameHash = $repository->findByFileHash($createData->fileHash);
+                $registeredFilePath = is_array($importWithSameHash)
+                    ? realpath((string) ($importWithSameHash['file_path'] ?? ''))
+                    : false;
+
+                if ($registeredFilePath === $createData->filePath) {
+                    $import = $importWithSameHash;
+                }
+            }
+
+            $created = $import === null;
+
+            if ($created) {
+                $idImport = $repository->create($createData);
+                $repository->createJob($idImport, 'parse');
+                $repository->createJob($idImport, 'process');
+            } else {
+                $idImport = (int) $import['id_b2b_import'];
+            }
+
+            $parseResult = (new PriceImportParser())->parse($idImport);
+            $processResult = (new PriceImportProcessor())->process($idImport);
+
+            die(json_encode([
+                'success' => true,
+                'message' => $created
+                    ? 'Stored CSV file registered and processed.'
+                    : 'Stored CSV file processed.',
+                'id_import' => $idImport,
+                'parse' => $parseResult,
+                'process' => $processResult,
+            ]));
+        } catch (Throwable $e) {
+            if ($idImport > 0) {
+                try {
+                    $this->getImportRepository()->setStatus($idImport, 'failed', $e->getMessage());
+                } catch (Throwable $innerException) {
+                    // Keep the AJAX response valid even if updating the import status fails.
+                }
+            }
+
+            die(json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]));
+        }
+    }
+
     public function ajaxProcessDeleteImport()
     {
         header('Content-Type: application/json');
@@ -450,22 +516,30 @@ class AdminB2BPriceImportController extends ModuleAdminController
 
     private function getExistingImportFiles(array $imports): array
     {
-        $files = [];
+        $importsByPath = [];
 
         foreach ($imports as $import) {
             $filePath = trim((string) ($import['file_path'] ?? ''));
+            $realFilePath = $filePath !== '' ? realpath($filePath) : false;
 
-            if (
-                $filePath === ''
-                || strtolower((string) pathinfo($filePath, PATHINFO_EXTENSION)) !== 'csv'
-                || !is_file($filePath)
-                || !is_readable($filePath)
-            ) {
-                continue;
+            if ($realFilePath !== false && !isset($importsByPath[$realFilePath])) {
+                $importsByPath[$realFilePath] = $import;
             }
-
-            $files[] = $import;
         }
+
+        $files = (new ImportFileStorageService())->listStoredCsvFiles();
+
+        foreach ($files as &$file) {
+            $import = $importsByPath[$file['file_path']] ?? null;
+
+            $file['display_filename'] = is_array($import) && !empty($import['original_filename'])
+                ? (string) $import['original_filename']
+                : (string) $file['stored_filename'];
+            $file['id_b2b_import'] = is_array($import) ? (int) $import['id_b2b_import'] : null;
+            $file['status'] = is_array($import) ? (string) $import['status'] : null;
+            $file['date_add'] = is_array($import) ? (string) $import['date_add'] : null;
+        }
+        unset($file);
 
         return $files;
     }
