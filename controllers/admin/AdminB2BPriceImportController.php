@@ -41,9 +41,9 @@ class AdminB2BPriceImportController extends ModuleAdminController
         parent::__construct();
     }
 
-    public function setMedia()
+    public function setMedia($isNewTheme = false)
     {
-        parent::setMedia();
+        parent::setMedia($isNewTheme);
 
         $this->addCSS($this->module->getPathUri() . 'views/css/admin.css');
     }
