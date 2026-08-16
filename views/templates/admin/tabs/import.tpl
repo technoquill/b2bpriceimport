@@ -132,7 +132,8 @@
                         </button>
                         <button type="button"
                                 class="btn btn-danger b2b-delete-import"
-                                data-id-import="{$import.id_b2b_import|intval}">
+                                data-id-import="{$import.id_b2b_import|intval}"
+                                data-import-file="{$import.original_filename|escape:'html':'UTF-8'}">
                             <i class="icon-trash"></i>
                             {l s='Delete' mod='b2bpriceimport'}
                         </button>
@@ -142,6 +143,50 @@
             </tbody>
         </table>
     {/if}
+</div>
+
+<div id="b2b-delete-import-modal"
+     class="modal fade"
+     tabindex="-1"
+     role="dialog"
+     aria-labelledby="b2b-delete-import-modal-title"
+     aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="{l s='Close' mod='b2bpriceimport'}">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 id="b2b-delete-import-modal-title" class="modal-title">
+                    {l s='Delete import' mod='b2bpriceimport'}
+                </h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    {l s='Are you sure you want to delete this import?' mod='b2bpriceimport'}
+                    <strong id="b2b-delete-import-file"></strong>
+                </p>
+                <div class="checkbox">
+                    <label>
+                        <input id="b2b-delete-import-file-checkbox" type="checkbox" value="1">
+                        {l s='Also delete the stored import file' mod='b2bpriceimport'}
+                    </label>
+                </div>
+                <p class="help-block">
+                    {l s='If unchecked, the import data will be deleted but the CSV file will remain on the server.' mod='b2bpriceimport'}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">
+                    {l s='Cancel' mod='b2bpriceimport'}
+                </button>
+                <button id="b2b-confirm-delete-import" type="button" class="btn btn-danger">
+                    <i class="icon-trash"></i>
+                    {l s='Delete import' mod='b2bpriceimport'}
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -157,6 +202,11 @@
         var submitLabel = document.getElementById('b2b-import-submit-label');
         var uploadLabel = '{l s='Upload import' mod='b2bpriceimport' js=1}';
         var runExistingLabel = '{l s='Run selected import' mod='b2bpriceimport' js=1}';
+        var deleteModal = document.getElementById('b2b-delete-import-modal');
+        var deleteModalFile = document.getElementById('b2b-delete-import-file');
+        var deleteFileCheckbox = document.getElementById('b2b-delete-import-file-checkbox');
+        var confirmDeleteButton = document.getElementById('b2b-confirm-delete-import');
+        var pendingDeleteButton = null;
 
         function showMessage(success, message) {
             var alert = document.createElement('div');
@@ -257,30 +307,57 @@
         Array.prototype.forEach.call(document.querySelectorAll('.b2b-delete-import'), function (button) {
             button.addEventListener('click', function () {
                 var idImport = this.getAttribute('data-id-import');
+                var importFile = this.getAttribute('data-import-file');
 
-                if (!confirm('{l s='Delete this import, its stored CSV file, jobs and import rows?' mod='b2bpriceimport' js=1}')) {
-                    return;
-                }
-
-                var formData = new FormData();
-                formData.append('id_import', idImport);
-
-                this.disabled = true;
-
-                fetch(ajaxUrl + '&ajax=1&action=DeleteImport', {
-                    method: 'POST',
-                    body: formData,
-                    credentials: 'same-origin'
-                })
-                    .then(handleJsonResponse)
-                    .then(function (json) {
-                        showMessage(json.success, json.message);
-                        window.location.reload();
-                    })
-                    .catch(function (error) {
-                        showMessage(false, error.message);
-                    });
+                pendingDeleteButton = this;
+                deleteFileCheckbox.checked = false;
+                deleteModalFile.textContent = importFile ? importFile + ' (#' + idImport + ')' : '#' + idImport;
+                window.jQuery(deleteModal).modal('show');
             });
+        });
+
+        confirmDeleteButton.addEventListener('click', function () {
+            if (pendingDeleteButton === null) {
+                return;
+            }
+
+            var deleteButton = pendingDeleteButton;
+            var formData = new FormData();
+            formData.append('id_import', deleteButton.getAttribute('data-id-import'));
+            formData.append('delete_file', deleteFileCheckbox.checked ? '1' : '0');
+
+            confirmDeleteButton.disabled = true;
+            deleteButton.disabled = true;
+
+            fetch(ajaxUrl + '&ajax=1&action=DeleteImport', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+                .then(handleJsonResponse)
+                .then(function (json) {
+                    showMessage(json.success, json.message);
+
+                    if (json.success) {
+                        window.location.reload();
+                        return;
+                    }
+
+                    confirmDeleteButton.disabled = false;
+                    deleteButton.disabled = false;
+                    window.jQuery(deleteModal).modal('hide');
+                })
+                .catch(function (error) {
+                    showMessage(false, error.message);
+                    confirmDeleteButton.disabled = false;
+                    deleteButton.disabled = false;
+                    window.jQuery(deleteModal).modal('hide');
+                });
+        });
+
+        window.jQuery(deleteModal).on('hidden.bs.modal', function () {
+            deleteFileCheckbox.checked = false;
+            pendingDeleteButton = null;
         });
     })();
 </script>
