@@ -108,7 +108,7 @@
             {l s='Imported positions' mod='b2bpriceimport'}
         </h3>
 
-        {if empty($importItems)}
+        {if empty($importItemsHasRows)}
             <div class="alert alert-warning">
                 {l s='No imported rows found yet. Run the import parser first.' mod='b2bpriceimport'}
             </div>
@@ -124,43 +124,116 @@
                         <th>{l s='Currency' mod='b2bpriceimport'}</th>
                         <th>{l s='Rate' mod='b2bpriceimport'}</th>
                         <th>{l s='UAH price' mod='b2bpriceimport'}</th>
-                        <th>{l s='Active' mod='b2bpriceimport'}</th>
-                        <th>{l s='Validation' mod='b2bpriceimport'}</th>
-                        <th>{l s='Processing' mod='b2bpriceimport'}</th>
-                        <th aria-sort="{if $importItemsPagination.status_order == 'asc'}ascending{else}descending{/if}">
-                            <a href="{$importItemsPagination.status_sort_url|escape:'html':'UTF-8'}"
-                               title="{if $importItemsPagination.status_order == 'asc'}{l s='Sort status descending' mod='b2bpriceimport'}{else}{l s='Sort status ascending' mod='b2bpriceimport'}{/if}">
-                                {l s='Item status' mod='b2bpriceimport'}
-                                <i class="{if $importItemsPagination.status_order == 'asc'}icon-sort-up{else}icon-sort-down{/if}"></i>
-                            </a>
+                        <th>
+                            <div>{l s='Active' mod='b2bpriceimport'}</div>
+                            <select class="form-control input-sm"
+                                    aria-label="{l s='Filter by active status' mod='b2bpriceimport'}"
+                                    onchange="window.location.href = this.value;">
+                                <option value="{$importItemsFilters.active.all_url|escape:'html':'UTF-8'}"{if $importItemsFilters.active.is_all} selected="selected"{/if}>
+                                    {l s='All' mod='b2bpriceimport'}
+                                </option>
+                                {foreach from=$importItemsFilters.active.options item=filterOption}
+                                    <option value="{$filterOption.url|escape:'html':'UTF-8'}"{if $filterOption.is_current} selected="selected"{/if}>
+                                        {$filterOption.label|escape:'html':'UTF-8'}
+                                    </option>
+                                {/foreach}
+                            </select>
                         </th>
-                        <th>{l s='Error' mod='b2bpriceimport'}</th>
+                        <th>
+                            <div>{l s='Validation' mod='b2bpriceimport'}</div>
+                            <select class="form-control input-sm"
+                                    aria-label="{l s='Filter by validation status' mod='b2bpriceimport'}"
+                                    onchange="window.location.href = this.value;">
+                                <option value="{$importItemsFilters.validation_status.all_url|escape:'html':'UTF-8'}"{if $importItemsFilters.validation_status.is_all} selected="selected"{/if}>
+                                    {l s='All' mod='b2bpriceimport'}
+                                </option>
+                                {foreach from=$importItemsFilters.validation_status.options item=filterOption}
+                                    <option value="{$filterOption.url|escape:'html':'UTF-8'}"{if $filterOption.is_current} selected="selected"{/if}>
+                                        {$filterOption.label|escape:'html':'UTF-8'}
+                                    </option>
+                                {/foreach}
+                            </select>
+                        </th>
+                        <th>
+                            <div>{l s='Processing' mod='b2bpriceimport'}</div>
+                            <select class="form-control input-sm"
+                                    aria-label="{l s='Filter by processing status' mod='b2bpriceimport'}"
+                                    onchange="window.location.href = this.value;">
+                                <option value="{$importItemsFilters.processing_status.all_url|escape:'html':'UTF-8'}"{if $importItemsFilters.processing_status.is_all} selected="selected"{/if}>
+                                    {l s='All' mod='b2bpriceimport'}
+                                </option>
+                                {foreach from=$importItemsFilters.processing_status.options item=filterOption}
+                                    <option value="{$filterOption.url|escape:'html':'UTF-8'}"{if $filterOption.is_current} selected="selected"{/if}>
+                                        {$filterOption.label|escape:'html':'UTF-8'}
+                                    </option>
+                                {/foreach}
+                            </select>
+                        </th>
+                        <th>
+                            <div>{l s='Item status' mod='b2bpriceimport'}</div>
+                            <select class="form-control input-sm"
+                                    aria-label="{l s='Filter by item status' mod='b2bpriceimport'}"
+                                    onchange="window.location.href = this.value;">
+                                <option value="{$importItemsFilters.item_status.all_url|escape:'html':'UTF-8'}"{if $importItemsFilters.item_status.is_all} selected="selected"{/if}>
+                                    {l s='All' mod='b2bpriceimport'}
+                                </option>
+                                {foreach from=$importItemsFilters.item_status.options item=filterOption}
+                                    <option value="{$filterOption.url|escape:'html':'UTF-8'}"{if $filterOption.is_current} selected="selected"{/if}>
+                                        {$filterOption.label|escape:'html':'UTF-8'}
+                                    </option>
+                                {/foreach}
+                            </select>
+                        </th>
+                        <th>
+                            <div>{l s='Error' mod='b2bpriceimport'}</div>
+                            <select class="form-control input-sm"
+                                    style="min-width: 160px; max-width: 260px;"
+                                    aria-label="{l s='Filter by error' mod='b2bpriceimport'}"
+                                    onchange="window.location.href = this.value;">
+                                <option value="{$importItemsFilters.error.all_url|escape:'html':'UTF-8'}"{if $importItemsFilters.error.is_all} selected="selected"{/if}>
+                                    {l s='All' mod='b2bpriceimport'}
+                                </option>
+                                {foreach from=$importItemsFilters.error.options item=filterOption}
+                                    <option value="{$filterOption.url|escape:'html':'UTF-8'}"{if $filterOption.is_current} selected="selected"{/if}>
+                                        {$filterOption.label|escape:'html':'UTF-8'}
+                                    </option>
+                                {/foreach}
+                            </select>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
-                    {foreach from=$importItems item=item}
-                        <tr class="{if $item.status == 'failed' || $item.validation_status == 'failed' || $item.processing_status == 'failed'}danger{elseif $item.status == 'processed' || $item.processing_status == 'processed'}success{/if}">
-                            <td>{$item.row_number|intval}</td>
-                            <td>{$item.reference|escape:'html':'UTF-8'}</td>
-                            <td>{$item.product_name|escape:'html':'UTF-8'}</td>
-                            <td>{$item.id_product|intval}</td>
-                            <td>{$item.source_price|escape:'html':'UTF-8'}</td>
-                            <td>{$item.currency_code|escape:'html':'UTF-8'}</td>
-                            <td>{$item.currency_rate|escape:'html':'UTF-8'}</td>
-                            <td>{$item.price_uah|escape:'html':'UTF-8'}</td>
-                            <td>{$item.active|escape:'html':'UTF-8'}</td>
-                            <td>{$item.validation_status|escape:'html':'UTF-8'}</td>
-                            <td>{$item.processing_status|escape:'html':'UTF-8'}</td>
-                            <td>{$item.status|escape:'html':'UTF-8'}</td>
-                            <td>
-                                {if !empty($item.error_message)}
-                                    {$item.error_message|escape:'html':'UTF-8'}
-                                {elseif !empty($item.staging_error_message)}
-                                    {$item.staging_error_message|escape:'html':'UTF-8'}
-                                {/if}
+                    {if empty($importItems)}
+                        <tr>
+                            <td colspan="13" class="text-center">
+                                {l s='No rows match the selected filters.' mod='b2bpriceimport'}
                             </td>
                         </tr>
-                    {/foreach}
+                    {else}
+                        {foreach from=$importItems item=item}
+                            <tr class="{if $item.status == 'failed' || $item.validation_status == 'failed' || $item.processing_status == 'failed'}danger{elseif $item.status == 'processed' || $item.processing_status == 'processed'}success{/if}">
+                                <td>{$item.row_number|intval}</td>
+                                <td>{$item.reference|escape:'html':'UTF-8'}</td>
+                                <td>{$item.product_name|escape:'html':'UTF-8'}</td>
+                                <td>{$item.id_product|intval}</td>
+                                <td>{$item.source_price|escape:'html':'UTF-8'}</td>
+                                <td>{$item.currency_code|escape:'html':'UTF-8'}</td>
+                                <td>{$item.currency_rate|escape:'html':'UTF-8'}</td>
+                                <td>{$item.price_uah|escape:'html':'UTF-8'}</td>
+                                <td>{$item.active|escape:'html':'UTF-8'}</td>
+                                <td>{$item.validation_status|escape:'html':'UTF-8'}</td>
+                                <td>{$item.processing_status|escape:'html':'UTF-8'}</td>
+                                <td>{$item.status|escape:'html':'UTF-8'}</td>
+                                <td>
+                                    {if !empty($item.error_message)}
+                                        {$item.error_message|escape:'html':'UTF-8'}
+                                    {elseif !empty($item.staging_error_message)}
+                                        {$item.staging_error_message|escape:'html':'UTF-8'}
+                                    {/if}
+                                </td>
+                            </tr>
+                        {/foreach}
+                    {/if}
                 </tbody>
             </table>
 

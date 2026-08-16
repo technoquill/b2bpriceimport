@@ -134,12 +134,62 @@ final class ImportRepository
         return is_array($rows) ? $rows : [];
     }
 
-    public function countImportItems(int $idImport): int
+    public function getImportItemFilterValues(int $idImport, string $filter): array
+    {
+        $filterExpressions = [
+            'active' => 'ps.active',
+            'validation_status' => 'ps.validation_status',
+            'processing_status' => 'ps.processing_status',
+            'item_status' => 'ii.status',
+            'error' => $this->getImportItemErrorExpression(),
+        ];
+
+        if (!isset($filterExpressions[$filter])) {
+            return [];
+        }
+
+        $query = new DbQuery();
+        $query->select('DISTINCT ' . $filterExpressions[$filter] . ' AS filter_value');
+        $query->from('b2b_import_item', 'ii');
+        $query->leftJoin(
+            'b2b_import_price_staging',
+            'ps',
+            'ps.id_b2b_import_item = ii.id_b2b_import_item'
+        );
+        $query->where('ii.id_b2b_import = ' . (int) $idImport);
+        $query->orderBy('filter_value ASC');
+
+        $rows = Db::getInstance()->executeS($query);
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        return array_values(
+            array_unique(
+                array_map(
+                    static fn (array $row): string => $row['filter_value'] === null
+                        ? ''
+                        : (string) $row['filter_value'],
+                    $rows
+                ),
+                SORT_STRING
+            )
+        );
+    }
+
+    public function countImportItems(int $idImport, array $filters = []): int
     {
         $query = new DbQuery();
         $query->select('COUNT(*)');
-        $query->from('b2b_import_item');
-        $query->where('id_b2b_import = ' . (int) $idImport);
+        $query->from('b2b_import_item', 'ii');
+        $query->leftJoin(
+            'b2b_import_price_staging',
+            'ps',
+            'ps.id_b2b_import_item = ii.id_b2b_import_item'
+        );
+        $query->where('ii.id_b2b_import = ' . (int) $idImport);
+        $this->applyImportItemFilters($query, $filters);
 
         return (int) Db::getInstance()->getValue($query);
     }
@@ -148,12 +198,11 @@ final class ImportRepository
         int $idImport,
         int $limit = 50,
         int $offset = 0,
-        string $statusOrder = 'ASC'
+        array $filters = []
     ): array
     {
         $limit = max(1, $limit);
         $offset = max(0, $offset);
-        $statusOrder = strtoupper($statusOrder) === 'DESC' ? 'DESC' : 'ASC';
 
         $query = new DbQuery();
         $query->select('
@@ -185,12 +234,44 @@ final class ImportRepository
             'ps.id_b2b_import_item = ii.id_b2b_import_item'
         );
         $query->where('ii.id_b2b_import = ' . (int) $idImport);
-        $query->orderBy('ii.status ' . $statusOrder . ', ii.row_number ASC, ii.id_b2b_import_item ASC');
+        $this->applyImportItemFilters($query, $filters);
+        $query->orderBy('ii.row_number ASC, ii.id_b2b_import_item ASC');
         $query->limit($limit, $offset);
 
         $rows = Db::getInstance()->executeS($query);
 
         return is_array($rows) ? $rows : [];
+    }
+
+    private function applyImportItemFilters(DbQuery $query, array $filters): void
+    {
+        $filterExpressions = [
+            'active' => 'ps.active',
+            'validation_status' => 'ps.validation_status',
+            'processing_status' => 'ps.processing_status',
+            'item_status' => 'ii.status',
+            'error' => $this->getImportItemErrorExpression(),
+        ];
+
+        foreach ($filters as $filter => $value) {
+            if (!isset($filterExpressions[$filter]) || !is_string($value)) {
+                continue;
+            }
+
+            $expression = $filterExpressions[$filter];
+
+            if ($value === '') {
+                $query->where('(' . $expression . " IS NULL OR " . $expression . " = '')");
+                continue;
+            }
+
+            $query->where($expression . " = '" . pSQL($value) . "'");
+        }
+    }
+
+    private function getImportItemErrorExpression(): string
+    {
+        return "COALESCE(NULLIF(ii.error_message, ''), NULLIF(ps.error_message, ''))";
     }
 
     public function getImportJobs(int $idImport): array
