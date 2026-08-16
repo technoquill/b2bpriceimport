@@ -321,6 +321,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
         header('Content-Type: application/json');
 
         $idImport = (int) Tools::getValue('id_import');
+        $deleteFile = (string) Tools::getValue('delete_file', '0') === '1';
 
         try {
             if ($idImport <= 0) {
@@ -334,12 +335,17 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 throw new Exception('Import not found.');
             }
 
-            (new ImportFileStorageService())->deleteStoredFile($import['file_path'] ?? null);
+            if ($deleteFile) {
+                (new ImportFileStorageService())->deleteStoredFile($import['file_path'] ?? null);
+            }
+
             $repository->deleteImport($idImport);
 
             die(json_encode([
                 'success' => true,
-                'message' => 'Import deleted.',
+                'message' => $deleteFile
+                    ? 'Import and its stored CSV file deleted.'
+                    : 'Import deleted. The stored CSV file was kept.',
             ]));
         } catch (Throwable $e) {
             die(json_encode([
