@@ -51,12 +51,16 @@
                 {l s='Existing CSV file' mod='b2bpriceimport'}
             </label>
             <div class="col-lg-6">
-                <select id="b2b-existing-import" name="id_import" class="form-control" disabled>
+                <select id="b2b-existing-import" name="stored_filename" class="form-control" disabled>
                     <option value="">{l s='Select a file' mod='b2bpriceimport'}</option>
-                    {foreach from=$existingImportFiles item=existingImport}
-                        <option value="{$existingImport.id_b2b_import|intval}">
-                            {$existingImport.original_filename|escape:'html':'UTF-8'}
-                            (#{$existingImport.id_b2b_import|intval}, {$existingImport.status|escape:'html':'UTF-8'}, {$existingImport.date_add|escape:'html':'UTF-8'})
+                    {foreach from=$existingImportFiles item=existingFile}
+                        <option value="{$existingFile.stored_filename|escape:'html':'UTF-8'}">
+                            {$existingFile.display_filename|escape:'html':'UTF-8'}
+                            {if !empty($existingFile.id_b2b_import)}
+                                (#{$existingFile.id_b2b_import|intval}, {$existingFile.status|escape:'html':'UTF-8'}, {$existingFile.date_add|escape:'html':'UTF-8'})
+                            {else}
+                                ({l s='not imported yet' mod='b2bpriceimport'})
+                            {/if}
                         </option>
                     {/foreach}
                 </select>
@@ -64,7 +68,7 @@
                     {if empty($existingImportFiles)}
                         {l s='No stored CSV files are available.' mod='b2bpriceimport'}
                     {else}
-                        {l s='The selected import will be run again using its stored CSV file.' mod='b2bpriceimport'}
+                        {l s='The selected stored CSV file will be registered if necessary and then processed.' mod='b2bpriceimport'}
                     {/if}
                 </p>
             </div>
@@ -255,7 +259,7 @@
 
             var formData = new FormData(this);
             var useExistingFile = getSelectedSource() === 'existing';
-            var action = useExistingFile ? 'RunImport' : 'CreateImport';
+            var action = useExistingFile ? 'RunStoredImport' : 'CreateImport';
 
             submitButton.disabled = true;
 
