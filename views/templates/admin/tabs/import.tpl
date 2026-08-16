@@ -13,20 +13,67 @@
     <form id="b2b-import-form" class="form-horizontal" method="post" enctype="multipart/form-data">
         <div class="form-group">
             <label class="control-label col-lg-3">
-                {l s='CSV file' mod='b2bpriceimport'}
+                {l s='File source' mod='b2bpriceimport'}
             </label>
             <div class="col-lg-6">
-                <input type="file" name="import_file" accept=".csv,text/csv" required>
+                <div class="radio">
+                    <label>
+                        <input type="radio" name="import_source" value="upload" checked>
+                        {l s='Upload a new CSV file' mod='b2bpriceimport'}
+                    </label>
+                </div>
+                <div class="radio">
+                    <label>
+                        <input type="radio"
+                               name="import_source"
+                               value="existing"
+                               {if empty($existingImportFiles)}disabled{/if}>
+                        {l s='Choose an existing CSV file' mod='b2bpriceimport'}
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div id="b2b-upload-file-group" class="form-group">
+            <label class="control-label col-lg-3">
+                {l s='New CSV file' mod='b2bpriceimport'}
+            </label>
+            <div class="col-lg-6">
+                <input id="b2b-upload-file" type="file" name="import_file" accept=".csv,text/csv" required>
                 <p class="help-block">
                     {l s='Delimiter is detected automatically: semicolon or comma.' mod='b2bpriceimport'}
                 </p>
             </div>
         </div>
 
+        <div id="b2b-existing-file-group" class="form-group hidden">
+            <label class="control-label col-lg-3">
+                {l s='Existing CSV file' mod='b2bpriceimport'}
+            </label>
+            <div class="col-lg-6">
+                <select id="b2b-existing-import" name="id_import" class="form-control" disabled>
+                    <option value="">{l s='Select a file' mod='b2bpriceimport'}</option>
+                    {foreach from=$existingImportFiles item=existingImport}
+                        <option value="{$existingImport.id_b2b_import|intval}">
+                            {$existingImport.original_filename|escape:'html':'UTF-8'}
+                            (#{$existingImport.id_b2b_import|intval}, {$existingImport.status|escape:'html':'UTF-8'}, {$existingImport.date_add|escape:'html':'UTF-8'})
+                        </option>
+                    {/foreach}
+                </select>
+                <p class="help-block">
+                    {if empty($existingImportFiles)}
+                        {l s='No stored CSV files are available.' mod='b2bpriceimport'}
+                    {else}
+                        {l s='The selected import will be run again using its stored CSV file.' mod='b2bpriceimport'}
+                    {/if}
+                </p>
+            </div>
+        </div>
+
         <div class="panel-footer">
-            <button type="submit" class="btn btn-primary">
+            <button id="b2b-import-submit" type="submit" class="btn btn-primary">
                 <i class="process-icon-upload"></i>
-                {l s='Upload import' mod='b2bpriceimport'}
+                <span id="b2b-import-submit-label">{l s='Upload import' mod='b2bpriceimport'}</span>
             </button>
         </div>
     </form>
@@ -101,9 +148,22 @@
     (function () {
         var ajaxUrl = '{$ajaxUrl|escape:'javascript':'UTF-8'}';
         var messageBox = document.getElementById('b2b-import-message');
+        var importForm = document.getElementById('b2b-import-form');
+        var uploadFileGroup = document.getElementById('b2b-upload-file-group');
+        var existingFileGroup = document.getElementById('b2b-existing-file-group');
+        var uploadFile = document.getElementById('b2b-upload-file');
+        var existingImport = document.getElementById('b2b-existing-import');
+        var submitButton = document.getElementById('b2b-import-submit');
+        var submitLabel = document.getElementById('b2b-import-submit-label');
+        var uploadLabel = '{l s='Upload import' mod='b2bpriceimport' js=1}';
+        var runExistingLabel = '{l s='Run selected import' mod='b2bpriceimport' js=1}';
 
         function showMessage(success, message) {
-            messageBox.innerHTML = '<div class="alert alert-' + (success ? 'success' : 'danger') + '">' + message + '</div>';
+            var alert = document.createElement('div');
+            alert.className = 'alert alert-' + (success ? 'success' : 'danger');
+            alert.textContent = message;
+            messageBox.innerHTML = '';
+            messageBox.appendChild(alert);
         }
 
         function handleJsonResponse(response) {
@@ -116,12 +176,40 @@
             });
         }
 
-        document.getElementById('b2b-import-form').addEventListener('submit', function (event) {
+        function getSelectedSource() {
+            var selectedSource = importForm.querySelector('input[name="import_source"]:checked');
+
+            return selectedSource ? selectedSource.value : 'upload';
+        }
+
+        function updateFileSource() {
+            var useExistingFile = getSelectedSource() === 'existing';
+
+            uploadFileGroup.classList.toggle('hidden', useExistingFile);
+            existingFileGroup.classList.toggle('hidden', !useExistingFile);
+            uploadFile.disabled = useExistingFile;
+            uploadFile.required = !useExistingFile;
+            existingImport.disabled = !useExistingFile;
+            existingImport.required = useExistingFile;
+            submitLabel.textContent = useExistingFile ? runExistingLabel : uploadLabel;
+        }
+
+        Array.prototype.forEach.call(importForm.querySelectorAll('input[name="import_source"]'), function (input) {
+            input.addEventListener('change', updateFileSource);
+        });
+
+        updateFileSource();
+
+        importForm.addEventListener('submit', function (event) {
             event.preventDefault();
 
             var formData = new FormData(this);
+            var useExistingFile = getSelectedSource() === 'existing';
+            var action = useExistingFile ? 'RunImport' : 'CreateImport';
 
-            fetch(ajaxUrl + '&ajax=1&action=CreateImport', {
+            submitButton.disabled = true;
+
+            fetch(ajaxUrl + '&ajax=1&action=' + action, {
                 method: 'POST',
                 body: formData,
                 credentials: 'same-origin'
@@ -131,10 +219,14 @@
                     showMessage(json.success, json.message);
                     if (json.success) {
                         window.location.reload();
+                        return;
                     }
+
+                    submitButton.disabled = false;
                 })
                 .catch(function (error) {
                     showMessage(false, error.message);
+                    submitButton.disabled = false;
                 });
         });
 
