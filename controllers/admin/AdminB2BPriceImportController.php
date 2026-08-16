@@ -16,6 +16,9 @@ use B2B\PriceImport\Service\PriceImportProcessor;
 
 class AdminB2BPriceImportController extends ModuleAdminController
 {
+    private const IMPORT_ITEMS_PAGE_SIZES = [20, 50, 100, 300, 1000];
+    private const DEFAULT_IMPORT_ITEMS_PAGE_SIZE = 50;
+
     public function __construct()
     {
         $this->bootstrap = true;
@@ -58,8 +61,49 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $import = $idImport > 0 ? $repository->find($idImport) : null;
 
             $assign['import'] = $import;
-            $assign['importItems'] = $import !== null ? $repository->getImportItems($idImport, 1000) : [];
             $assign['importJobs'] = $import !== null ? $repository->getImportJobs($idImport) : [];
+
+            if ($import !== null) {
+                $pageSize = (int) Tools::getValue(
+                    'items_per_page',
+                    self::DEFAULT_IMPORT_ITEMS_PAGE_SIZE
+                );
+
+                if (!in_array($pageSize, self::IMPORT_ITEMS_PAGE_SIZES, true)) {
+                    $pageSize = self::DEFAULT_IMPORT_ITEMS_PAGE_SIZE;
+                }
+
+                $statusOrder = strtolower((string) Tools::getValue('items_status_order', 'asc'));
+
+                if (!in_array($statusOrder, ['asc', 'desc'], true)) {
+                    $statusOrder = 'asc';
+                }
+
+                $totalItems = $repository->countImportItems($idImport);
+                $totalPages = max(1, (int) ceil($totalItems / $pageSize));
+                $currentPage = max(1, (int) Tools::getValue('items_page', 1));
+                $currentPage = min($currentPage, $totalPages);
+                $offset = ($currentPage - 1) * $pageSize;
+
+                $assign['importItems'] = $repository->getImportItems(
+                    $idImport,
+                    $pageSize,
+                    $offset,
+                    $statusOrder
+                );
+                $assign['importItemsPagination'] = $this->buildImportItemsPagination(
+                    $baseUrl,
+                    $idImport,
+                    $currentPage,
+                    $pageSize,
+                    $totalItems,
+                    $totalPages,
+                    $statusOrder
+                );
+            } else {
+                $assign['importItems'] = [];
+                $assign['importItemsPagination'] = [];
+            }
         }
 
         $this->context->smarty->assign($assign);
@@ -331,6 +375,113 @@ class AdminB2BPriceImportController extends ModuleAdminController
     private function getImportRepository(): ImportRepository
     {
         return new ImportRepository();
+    }
+
+    private function buildImportItemsPagination(
+        string $baseUrl,
+        int $idImport,
+        int $currentPage,
+        int $pageSize,
+        int $totalItems,
+        int $totalPages,
+        string $statusOrder
+    ): array
+    {
+        $visiblePageNumbers = [1, $totalPages];
+
+        for ($pageNumber = $currentPage - 2; $pageNumber <= $currentPage + 2; ++$pageNumber) {
+            if ($pageNumber > 0 && $pageNumber <= $totalPages) {
+                $visiblePageNumbers[] = $pageNumber;
+            }
+        }
+
+        $visiblePageNumbers = array_values(array_unique($visiblePageNumbers));
+        sort($visiblePageNumbers, SORT_NUMERIC);
+
+        $pages = [];
+        $previousVisiblePage = null;
+
+        foreach ($visiblePageNumbers as $pageNumber) {
+            if ($previousVisiblePage !== null && $pageNumber > $previousVisiblePage + 1) {
+                $pages[] = ['ellipsis' => true];
+            }
+
+            $pages[] = [
+                'ellipsis' => false,
+                'number' => $pageNumber,
+                'is_current' => $pageNumber === $currentPage,
+                'url' => $this->buildImportItemsUrl(
+                    $baseUrl,
+                    $idImport,
+                    $pageNumber,
+                    $pageSize,
+                    $statusOrder
+                ),
+            ];
+            $previousVisiblePage = $pageNumber;
+        }
+
+        $pageSizeOptions = [];
+
+        foreach (self::IMPORT_ITEMS_PAGE_SIZES as $size) {
+            $pageSizeOptions[] = [
+                'value' => $size,
+                'is_current' => $size === $pageSize,
+                'url' => $this->buildImportItemsUrl($baseUrl, $idImport, 1, $size, $statusOrder),
+            ];
+        }
+
+        return [
+            'current_page' => $currentPage,
+            'total_pages' => $totalPages,
+            'total_items' => $totalItems,
+            'first_item' => $totalItems > 0 ? (($currentPage - 1) * $pageSize) + 1 : 0,
+            'last_item' => min($currentPage * $pageSize, $totalItems),
+            'page_size_options' => $pageSizeOptions,
+            'pages' => $pages,
+            'previous_url' => $currentPage > 1
+                ? $this->buildImportItemsUrl(
+                    $baseUrl,
+                    $idImport,
+                    $currentPage - 1,
+                    $pageSize,
+                    $statusOrder
+                )
+                : null,
+            'next_url' => $currentPage < $totalPages
+                ? $this->buildImportItemsUrl(
+                    $baseUrl,
+                    $idImport,
+                    $currentPage + 1,
+                    $pageSize,
+                    $statusOrder
+                )
+                : null,
+            'status_order' => $statusOrder,
+            'status_sort_url' => $this->buildImportItemsUrl(
+                $baseUrl,
+                $idImport,
+                1,
+                $pageSize,
+                $statusOrder === 'asc' ? 'desc' : 'asc'
+            ),
+        ];
+    }
+
+    private function buildImportItemsUrl(
+        string $baseUrl,
+        int $idImport,
+        int $page,
+        int $pageSize,
+        string $statusOrder
+    ): string
+    {
+        return $baseUrl
+            . '&section=import_detail'
+            . '&id_import=' . $idImport
+            . '&items_page=' . $page
+            . '&items_per_page=' . $pageSize
+            . '&items_status_order=' . $statusOrder;
     }
 
     private function getCustomerGroups(): array
