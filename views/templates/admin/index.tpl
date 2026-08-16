@@ -15,7 +15,7 @@
         {/foreach}
     </ul>
 
-    <div class="b2b-section-content" style="margin-top: 20px;">
+    <div class="b2b-section-content">
         {if $activeSection == 'discount_matrix'}
             {include file="./tabs/discount_matrix.tpl"}
         {elseif $activeSection == 'config'}

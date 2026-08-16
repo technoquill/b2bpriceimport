@@ -102,7 +102,7 @@
         {/if}
     </div>
 
-    <div class="panel">
+    <div class="panel b2b-import-items-panel">
         <h3>
             <i class="icon-list"></i>
             {l s='Imported positions' mod='b2bpriceimport'}
@@ -113,16 +113,26 @@
                 {l s='No imported rows found yet. Run the import parser first.' mod='b2bpriceimport'}
             </div>
         {else}
-            <table class="table">
+            <div class="b2b-import-items-toolbar clearfix">
+                <a class="btn btn-default pull-right{if empty($importItemsHasActiveCriteria)} disabled{/if}"
+                   href="{$importItemsResetUrl|escape:'html':'UTF-8'}"
+                   {if empty($importItemsHasActiveCriteria)}aria-disabled="true" tabindex="-1"{/if}>
+                    <i class="icon-eraser"></i>
+                    {l s='Reset all filters' mod='b2bpriceimport'}
+                </a>
+            </div>
+
+            <div class="table-responsive b2b-import-items-table-wrapper">
+                <table class="table table-striped table-hover b2b-import-items-table">
                 <thead>
                     <tr>
                         <th>{l s='Row' mod='b2bpriceimport'}</th>
                         <th>
-                            <div>{l s='Reference' mod='b2bpriceimport'}</div>
-                            <div class="input-group" style="min-width: 150px;">
+                            <span class="b2b-import-items-filter-label">{l s='Reference' mod='b2bpriceimport'}</span>
+                            <div class="input-group input-group-sm b2b-import-items-search b2b-import-items-search-reference">
                                 <input id="import-items-reference-search"
                                        type="search"
-                                       class="form-control input-sm js-import-items-search"
+                                       class="form-control js-import-items-search"
                                        value="{$importItemsSearches.reference.value|escape:'html':'UTF-8'}"
                                        data-base-url="{$importItemsSearches.reference.base_url|escape:'html':'UTF-8'}"
                                        data-parameter="{$importItemsSearches.reference.parameter|escape:'html':'UTF-8'}"
@@ -130,7 +140,7 @@
                                        aria-label="{l s='Search by reference' mod='b2bpriceimport'}">
                                 <span class="input-group-btn">
                                     <button type="button"
-                                            class="btn btn-default btn-sm js-import-items-search-submit"
+                                            class="btn btn-default js-import-items-search-submit"
                                             data-search-input="import-items-reference-search"
                                             title="{l s='Search by reference' mod='b2bpriceimport'}">
                                         <i class="icon-search"></i>
@@ -139,11 +149,11 @@
                             </div>
                         </th>
                         <th>
-                            <div>{l s='Product name' mod='b2bpriceimport'}</div>
-                            <div class="input-group" style="min-width: 200px;">
+                            <span class="b2b-import-items-filter-label">{l s='Product name' mod='b2bpriceimport'}</span>
+                            <div class="input-group input-group-sm b2b-import-items-search b2b-import-items-search-product">
                                 <input id="import-items-product-name-search"
                                        type="search"
-                                       class="form-control input-sm js-import-items-search"
+                                       class="form-control js-import-items-search"
                                        value="{$importItemsSearches.product_name.value|escape:'html':'UTF-8'}"
                                        data-base-url="{$importItemsSearches.product_name.base_url|escape:'html':'UTF-8'}"
                                        data-parameter="{$importItemsSearches.product_name.parameter|escape:'html':'UTF-8'}"
@@ -151,7 +161,7 @@
                                        aria-label="{l s='Search by product name' mod='b2bpriceimport'}">
                                 <span class="input-group-btn">
                                     <button type="button"
-                                            class="btn btn-default btn-sm js-import-items-search-submit"
+                                            class="btn btn-default js-import-items-search-submit"
                                             data-search-input="import-items-product-name-search"
                                             title="{l s='Search by product name' mod='b2bpriceimport'}">
                                         <i class="icon-search"></i>
@@ -165,8 +175,8 @@
                         <th>{l s='Rate' mod='b2bpriceimport'}</th>
                         <th>{l s='UAH price' mod='b2bpriceimport'}</th>
                         <th>
-                            <div>{l s='Active' mod='b2bpriceimport'}</div>
-                            <select class="form-control input-sm"
+                            <span class="b2b-import-items-filter-label">{l s='Active' mod='b2bpriceimport'}</span>
+                            <select class="form-control input-sm b2b-import-items-filter-control"
                                     aria-label="{l s='Filter by active status' mod='b2bpriceimport'}"
                                     onchange="window.location.href = this.value;">
                                 <option value="{$importItemsFilters.active.all_url|escape:'html':'UTF-8'}"{if $importItemsFilters.active.is_all} selected="selected"{/if}>
@@ -180,8 +190,8 @@
                             </select>
                         </th>
                         <th>
-                            <div>{l s='Validation' mod='b2bpriceimport'}</div>
-                            <select class="form-control input-sm"
+                            <span class="b2b-import-items-filter-label">{l s='Validation' mod='b2bpriceimport'}</span>
+                            <select class="form-control input-sm b2b-import-items-filter-control"
                                     aria-label="{l s='Filter by validation status' mod='b2bpriceimport'}"
                                     onchange="window.location.href = this.value;">
                                 <option value="{$importItemsFilters.validation_status.all_url|escape:'html':'UTF-8'}"{if $importItemsFilters.validation_status.is_all} selected="selected"{/if}>
@@ -195,8 +205,8 @@
                             </select>
                         </th>
                         <th>
-                            <div>{l s='Processing' mod='b2bpriceimport'}</div>
-                            <select class="form-control input-sm"
+                            <span class="b2b-import-items-filter-label">{l s='Processing' mod='b2bpriceimport'}</span>
+                            <select class="form-control input-sm b2b-import-items-filter-control"
                                     aria-label="{l s='Filter by processing status' mod='b2bpriceimport'}"
                                     onchange="window.location.href = this.value;">
                                 <option value="{$importItemsFilters.processing_status.all_url|escape:'html':'UTF-8'}"{if $importItemsFilters.processing_status.is_all} selected="selected"{/if}>
@@ -210,8 +220,8 @@
                             </select>
                         </th>
                         <th>
-                            <div>{l s='Item status' mod='b2bpriceimport'}</div>
-                            <select class="form-control input-sm"
+                            <span class="b2b-import-items-filter-label">{l s='Item status' mod='b2bpriceimport'}</span>
+                            <select class="form-control input-sm b2b-import-items-filter-control"
                                     aria-label="{l s='Filter by item status' mod='b2bpriceimport'}"
                                     onchange="window.location.href = this.value;">
                                 <option value="{$importItemsFilters.item_status.all_url|escape:'html':'UTF-8'}"{if $importItemsFilters.item_status.is_all} selected="selected"{/if}>
@@ -225,9 +235,8 @@
                             </select>
                         </th>
                         <th>
-                            <div>{l s='Error' mod='b2bpriceimport'}</div>
-                            <select class="form-control input-sm"
-                                    style="min-width: 160px; max-width: 260px;"
+                            <span class="b2b-import-items-filter-label">{l s='Error' mod='b2bpriceimport'}</span>
+                            <select class="form-control input-sm b2b-import-items-filter-control b2b-import-items-filter-error"
                                     aria-label="{l s='Filter by error' mod='b2bpriceimport'}"
                                     onchange="window.location.href = this.value;">
                                 <option value="{$importItemsFilters.error.all_url|escape:'html':'UTF-8'}"{if $importItemsFilters.error.is_all} selected="selected"{/if}>
@@ -275,23 +284,23 @@
                         {/foreach}
                     {/if}
                 </tbody>
-            </table>
+                </table>
+            </div>
 
-            <div class="row" style="margin-top: 15px;">
-                <div class="col-sm-6">
-                    <span>
+            <div class="panel-footer b2b-import-items-footer">
+                <div class="b2b-import-items-summary">
+                    <span class="b2b-import-items-range">
                         {l s='Showing' mod='b2bpriceimport'}
                         {$importItemsPagination.first_item|intval}-{$importItemsPagination.last_item|intval}
                         {l s='of' mod='b2bpriceimport'}
                         {$importItemsPagination.total_items|intval}
                     </span>
 
-                    <label for="import-items-page-size" style="margin-left: 15px;">
+                    <label for="import-items-page-size" class="b2b-import-items-page-size-label">
                         {l s='Rows per page' mod='b2bpriceimport'}
                     </label>
                     <select id="import-items-page-size"
-                            class="form-control input-sm"
-                            style="display: inline-block; width: auto; margin-left: 5px;"
+                            class="form-control input-sm b2b-import-items-page-size"
                             onchange="window.location.href = this.value;">
                         {foreach from=$importItemsPagination.page_size_options item=pageSizeOption}
                             <option value="{$pageSizeOption.url|escape:'html':'UTF-8'}"{if $pageSizeOption.is_current} selected="selected"{/if}>
@@ -302,9 +311,9 @@
                 </div>
 
                 {if $importItemsPagination.total_pages > 1}
-                    <div class="col-sm-6">
-                        <nav aria-label="{l s='Imported positions pagination' mod='b2bpriceimport'}">
-                            <ul class="pagination pagination-sm pull-right" style="margin: 0;">
+                    <nav class="b2b-import-items-pagination"
+                         aria-label="{l s='Imported positions pagination' mod='b2bpriceimport'}">
+                            <ul class="pagination pagination-sm">
                                 <li{if empty($importItemsPagination.previous_url)} class="disabled"{/if}>
                                     {if empty($importItemsPagination.previous_url)}
                                         <span aria-hidden="true">&laquo;</span>
@@ -342,8 +351,7 @@
                                     {/if}
                                 </li>
                             </ul>
-                        </nav>
-                    </div>
+                    </nav>
                 {/if}
             </div>
         {/if}
