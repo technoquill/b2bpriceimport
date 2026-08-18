@@ -77,7 +77,7 @@
         <div class="panel-footer">
             <button id="b2b-import-submit" type="submit" class="btn btn-primary">
                 <i class="process-icon-upload"></i>
-                <span id="b2b-import-submit-label">{l s='Upload import' mod='b2bpriceimport'}</span>
+                <span id="b2b-import-submit-label">{l s='Upload and run import' mod='b2bpriceimport'}</span>
             </button>
         </div>
     </form>
@@ -149,6 +149,24 @@
     {/if}
 </div>
 
+<div id="b2b-import-processing-overlay"
+     class="b2b-import-processing-overlay hidden"
+     aria-hidden="true">
+    <div class="b2b-import-processing-dialog" role="status" aria-live="assertive">
+        <div class="b2b-import-processing-spinner" aria-hidden="true"></div>
+        <h3>{l s='Import in progress' mod='b2bpriceimport'}</h3>
+        <p id="b2b-import-processing-message">
+            {l s='The CSV file is being processed. This may take several minutes.' mod='b2bpriceimport'}
+        </p>
+        <div class="progress progress-striped active b2b-import-processing-progress" aria-hidden="true">
+            <div class="progress-bar progress-bar-info" style="width: 100%"></div>
+        </div>
+        <p class="help-block">
+            {l s='Please do not close, reload, or leave this page until the import is complete.' mod='b2bpriceimport'}
+        </p>
+    </div>
+</div>
+
 <div id="b2b-delete-import-modal"
      class="modal fade"
      tabindex="-1"
@@ -204,13 +222,18 @@
         var existingImport = document.getElementById('b2b-existing-import');
         var submitButton = document.getElementById('b2b-import-submit');
         var submitLabel = document.getElementById('b2b-import-submit-label');
-        var uploadLabel = '{l s='Upload import' mod='b2bpriceimport' js=1}';
+        var uploadLabel = '{l s='Upload and run import' mod='b2bpriceimport' js=1}';
         var runExistingLabel = '{l s='Run selected import' mod='b2bpriceimport' js=1}';
+        var processingOverlay = document.getElementById('b2b-import-processing-overlay');
+        var processingMessage = document.getElementById('b2b-import-processing-message');
+        var uploadProcessingMessage = '{l s='Uploading and processing the CSV file. This may take several minutes.' mod='b2bpriceimport' js=1}';
+        var existingProcessingMessage = '{l s='Processing the selected CSV file. This may take several minutes.' mod='b2bpriceimport' js=1}';
         var deleteModal = document.getElementById('b2b-delete-import-modal');
         var deleteModalFile = document.getElementById('b2b-delete-import-file');
         var deleteFileCheckbox = document.getElementById('b2b-delete-import-file-checkbox');
         var confirmDeleteButton = document.getElementById('b2b-confirm-delete-import');
         var pendingDeleteButton = null;
+        var isImportProcessing = false;
 
         function showMessage(success, message) {
             var alert = document.createElement('div');
@@ -228,6 +251,26 @@
                     throw new Error(text.substring(0, 1000));
                 }
             });
+        }
+
+        function startImportProcessing(message) {
+            isImportProcessing = true;
+            processingMessage.textContent = message;
+            processingOverlay.classList.remove('hidden');
+            processingOverlay.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('b2b-import-processing');
+        }
+
+        function stopImportProcessing() {
+            isImportProcessing = false;
+            processingOverlay.classList.add('hidden');
+            processingOverlay.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('b2b-import-processing');
+        }
+
+        function reloadAfterImport() {
+            isImportProcessing = false;
+            window.location.reload();
         }
 
         function getSelectedSource() {
@@ -262,6 +305,7 @@
             var action = useExistingFile ? 'RunStoredImport' : 'CreateImport';
 
             submitButton.disabled = true;
+            startImportProcessing(useExistingFile ? existingProcessingMessage : uploadProcessingMessage);
 
             fetch(ajaxUrl + '&ajax=1&action=' + action, {
                 method: 'POST',
@@ -272,14 +316,16 @@
                 .then(function (json) {
                     showMessage(json.success, json.message);
                     if (json.success) {
-                        window.location.reload();
+                        reloadAfterImport();
                         return;
                     }
 
+                    stopImportProcessing();
                     submitButton.disabled = false;
                 })
                 .catch(function (error) {
                     showMessage(false, error.message);
+                    stopImportProcessing();
                     submitButton.disabled = false;
                 });
         });
@@ -291,6 +337,9 @@
                 formData.append('id_import', idImport);
 
                 this.disabled = true;
+                startImportProcessing(existingProcessingMessage);
+
+                var runButton = this;
 
                 fetch(ajaxUrl + '&ajax=1&action=RunImport', {
                     method: 'POST',
@@ -300,10 +349,19 @@
                     .then(handleJsonResponse)
                     .then(function (json) {
                         showMessage(json.success, json.message);
-                        window.location.reload();
+
+                        if (json.success) {
+                            reloadAfterImport();
+                            return;
+                        }
+
+                        stopImportProcessing();
+                        runButton.disabled = false;
                     })
                     .catch(function (error) {
                         showMessage(false, error.message);
+                        stopImportProcessing();
+                        runButton.disabled = false;
                     });
             });
         });
@@ -362,6 +420,15 @@
         window.jQuery(deleteModal).on('hidden.bs.modal', function () {
             deleteFileCheckbox.checked = false;
             pendingDeleteButton = null;
+        });
+
+        window.addEventListener('beforeunload', function (event) {
+            if (!isImportProcessing) {
+                return;
+            }
+
+            event.preventDefault();
+            event.returnValue = '';
         });
     })();
 </script>

@@ -254,6 +254,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
     {
         header('Content-Type: application/json');
 
+        $idImport = 0;
+
         try {
             if (empty($_FILES['import_file'])) {
                 throw new Exception('Import file is required.');
@@ -266,13 +268,24 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $idImport = $repository->create($createData);
             $repository->createJob($idImport, 'parse');
             $repository->createJob($idImport, 'process');
+            $result = $this->runImportToCompletion($idImport);
 
             die(json_encode([
                 'success' => true,
-                'message' => 'Import created.',
+                'message' => 'CSV file uploaded and import processed.',
                 'id_import' => $idImport,
+                'parse' => $result['parse'],
+                'process' => $result['process'],
             ]));
         } catch (Throwable $e) {
+            if ($idImport > 0) {
+                try {
+                    $this->getImportRepository()->setStatus($idImport, 'failed', $e->getMessage());
+                } catch (Throwable $innerException) {
+                    // Keep the AJAX response valid even if updating the import status fails.
+                }
+            }
+
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -291,14 +304,13 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 throw new Exception('Invalid import id.');
             }
 
-            $parseResult = (new PriceImportParser())->parse($idImport);
-            $processResult = (new PriceImportProcessor())->process($idImport);
+            $result = $this->runImportToCompletion($idImport);
 
             die(json_encode([
                 'success' => true,
                 'message' => 'Import processed.',
-                'parse' => $parseResult,
-                'process' => $processResult,
+                'parse' => $result['parse'],
+                'process' => $result['process'],
             ]));
         } catch (Throwable $e) {
             if ($idImport > 0) {
@@ -354,8 +366,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 $idImport = (int) $import['id_b2b_import'];
             }
 
-            $parseResult = (new PriceImportParser())->parse($idImport);
-            $processResult = (new PriceImportProcessor())->process($idImport);
+            $result = $this->runImportToCompletion($idImport);
 
             die(json_encode([
                 'success' => true,
@@ -363,8 +374,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
                     ? 'Stored CSV file registered and processed.'
                     : 'Stored CSV file processed.',
                 'id_import' => $idImport,
-                'parse' => $parseResult,
-                'process' => $processResult,
+                'parse' => $result['parse'],
+                'process' => $result['process'],
             ]));
         } catch (Throwable $e) {
             if ($idImport > 0) {
@@ -512,6 +523,46 @@ class AdminB2BPriceImportController extends ModuleAdminController
     private function getImportRepository(): ImportRepository
     {
         return new ImportRepository();
+    }
+
+    private function runImportToCompletion(int $idImport): array
+    {
+        ignore_user_abort(true);
+        @set_time_limit(0);
+
+        $parseResult = (new PriceImportParser())->parse($idImport);
+        $batchLimit = max(1, $this->getConfigRepository()->getImportBatchLimit());
+        $processor = new PriceImportProcessor();
+        $processResult = [
+            'processed' => 0,
+            'failed' => 0,
+            'batches' => 0,
+        ];
+
+        do {
+            $batchResult = $processor->process($idImport, $batchLimit);
+            $handledRows = (int) ($batchResult['processed'] ?? 0)
+                + (int) ($batchResult['failed'] ?? 0);
+
+            $processResult['processed'] += (int) ($batchResult['processed'] ?? 0);
+            $processResult['failed'] += (int) ($batchResult['failed'] ?? 0);
+            $processResult['batches']++;
+        } while ($handledRows >= $batchLimit);
+
+        $failedRows = (int) ($parseResult['failed'] ?? 0) + $processResult['failed'];
+
+        if ($failedRows > 0) {
+            $this->getImportRepository()->setStatus(
+                $idImport,
+                'failed',
+                sprintf('%d import row(s) failed.', $failedRows)
+            );
+        }
+
+        return [
+            'parse' => $parseResult,
+            'process' => $processResult,
+        ];
     }
 
     private function getExistingImportFiles(array $imports): array
