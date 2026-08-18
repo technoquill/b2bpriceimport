@@ -23,6 +23,9 @@ final class RunPriceImportCommand extends Command
 {
     protected static $defaultName = 'b2b:price-import:run';
 
+    private const EXIT_SUCCESS = 0;
+    private const EXIT_FAILURE = 1;
+
     private const TYPE_PARSE = 'parse';
     private const TYPE_PROCESS = 'process';
     private const TYPE_ALL = 'all';
@@ -107,7 +110,7 @@ final class RunPriceImportCommand extends Command
                 $summary['message'] = 'No eligible CSV file found for import.';
                 $this->writeSummary($output, $summary, $format);
 
-                return Command::SUCCESS;
+                return self::EXIT_SUCCESS;
             }
 
             $summary['import_id'] = $idImport;
@@ -144,7 +147,7 @@ final class RunPriceImportCommand extends Command
 
             $this->writeSummary($output, $summary, $format);
 
-            return Command::SUCCESS;
+            return self::EXIT_SUCCESS;
         } catch (Throwable $exception) {
             $summary['message'] = $exception->getMessage();
 
@@ -156,7 +159,7 @@ final class RunPriceImportCommand extends Command
 
             $this->writeSummary($output, $summary, $format);
 
-            return Command::FAILURE;
+            return self::EXIT_FAILURE;
         }
     }
 
@@ -275,6 +278,29 @@ final class RunPriceImportCommand extends Command
         if (is_array($summary['scan'])) {
             $output->writeln('Scan created: ' . count($summary['scan']['created'] ?? []));
             $output->writeln('Scan skipped: ' . count($summary['scan']['skipped'] ?? []));
+
+            $skippedReasons = [];
+            foreach (($summary['scan']['skipped'] ?? []) as $skippedFile) {
+                $reason = (string) ($skippedFile['reason'] ?? 'unknown');
+                $skippedReasons[$reason] = ($skippedReasons[$reason] ?? 0) + 1;
+
+                if ($output->isVerbose()) {
+                    $output->writeln(sprintf(
+                        'Skipped file: %s (%s)',
+                        (string) ($skippedFile['file'] ?? '-'),
+                        $reason
+                    ));
+                }
+            }
+
+            if ($skippedReasons !== []) {
+                $reasonSummary = [];
+                foreach ($skippedReasons as $reason => $count) {
+                    $reasonSummary[] = sprintf('%s=%d', $reason, $count);
+                }
+
+                $output->writeln('Scan skipped reasons: ' . implode(', ', $reasonSummary));
+            }
         }
 
         if (is_array($summary['parse'])) {
