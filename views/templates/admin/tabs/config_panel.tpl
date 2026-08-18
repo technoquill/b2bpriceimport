@@ -1,10 +1,62 @@
-<div class="panel b2b-config-panel">
-    <h3>
-        <i class="icon-cogs"></i>
-        {l s='Module configuration' mod='b2bpriceimport'}
-    </h3>
-
+<div class="b2b-config-page">
     <style>
+        .b2b-config-page-title {
+            margin: 0 0 16px;
+            font-size: 18px;
+        }
+
+        .b2b-config-group {
+            margin-bottom: 15px;
+        }
+
+        .b2b-config-group-heading {
+            padding: 0;
+        }
+
+        .b2b-config-group-toggle {
+            display: block;
+            width: 100%;
+            padding: 13px 15px;
+            border: 0;
+            background: transparent;
+            color: #363a41;
+            text-align: left;
+        }
+
+        .b2b-config-group-toggle:hover,
+        .b2b-config-group-toggle:focus {
+            color: #25b9d7;
+            text-decoration: none;
+            outline: none;
+        }
+
+        .b2b-config-group-toggle .b2b-config-group-chevron {
+            float: right;
+            margin-top: 9px;
+        }
+
+        .b2b-config-group-toggle[aria-expanded="true"] .b2b-config-group-chevron:before {
+            content: "\f077";
+        }
+
+        .b2b-config-group-title {
+            display: block;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .b2b-config-group-description {
+            display: block;
+            margin: 3px 24px 0;
+            color: #6c868e;
+            font-size: 12px;
+            font-weight: 400;
+        }
+
+        .b2b-config-group .panel-body {
+            padding-top: 18px;
+        }
+
         .b2b-config-row {
             margin-bottom: 18px;
         }
@@ -14,29 +66,6 @@
             min-height: 16px;
             margin-top: 5px;
             font-size: 11px;
-        }
-
-        .b2b-checkbox-list {
-            padding: 10px 12px;
-            border: 1px solid #d3d8db;
-            background: #fff;
-           /*max-width: 720px;*/
-        }
-
-        .b2b-checkbox-item {
-            display: block;
-            padding: 4px 12px;
-            margin-bottom: 8px;
-            font-weight: 400;
-            cursor: pointer;
-        }
-
-        .b2b-checkbox-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .b2b-checkbox-item input {
-            margin-right: 7px;
         }
 
         .b2b-secret-control .btn {
@@ -49,177 +78,197 @@
         }
     </style>
 
-    {if empty($configDefinitions)}
+    <h2 class="b2b-config-page-title">
+        <i class="icon-cogs"></i>
+        {l s='Module configuration' mod='b2bpriceimport'}
+    </h2>
+
+    {if empty($configGroups)}
         <div class="alert alert-info">
             {l s='No configuration options available.' mod='b2bpriceimport'}
         </div>
     {else}
-        {foreach from=$configDefinitions item=config}
-            <div class="form-group b2b-config-row">
-                <label class="control-label col-lg-3">
-                    {$config.label|escape:'html':'UTF-8'}
-                </label>
-
-                <div class="col-lg-6">
-                    {if $config.type == 'group_multiselect'}
-                        <div
-                                class="b2b-checkbox-list b2b-config-checkbox-list"
-                                data-config-key="{$config.key|escape:'html':'UTF-8'}"
-                                data-config-type="{$config.type|escape:'html':'UTF-8'}"
-                        >
-                            {foreach from=$allGroups item=group}
-                                <label class="b2b-checkbox-item">
-                                    <input
-                                            type="checkbox"
-                                            class="b2b-config-checkbox"
-                                            value="{$group.id_group|intval}"
-                                            {if in_array($group.id_group, $config.value)}checked="checked"{/if}
-                                    />
-                                    {$group.name|escape:'html':'UTF-8'}
-                                </label>
-                            {/foreach}
-                        </div>
-                    {elseif $config.type == 'text'}
-                        {if !empty($config.readonly)}
-                            <div class="input-group b2b-readonly-config-control">
-                                <input
-                                        type="text"
-                                        class="form-control b2b-readonly-config-field"
-                                        value="{$config.value|escape:'html':'UTF-8'}"
-                                        readonly="readonly"
-                                        spellcheck="false"
-                                />
-                                {if !empty($config.copyable)}
-                                    <span class="input-group-btn">
-                                        <button type="button" class="btn btn-default b2b-copy-config-value">
-                                            <i class="icon-copy"></i>
-                                            {l s='Copy' mod='b2bpriceimport'}
-                                        </button>
-                                    </span>
-                                {/if}
-                            </div>
-                        {else}
-                            <input
-                                    type="text"
-                                    class="form-control b2b-config-field"
-                                    data-config-key="{$config.key|escape:'html':'UTF-8'}"
-                                    data-config-type="{$config.type|escape:'html':'UTF-8'}"
-                                    value="{$config.value|escape:'html':'UTF-8'}"
-                            />
-                        {/if}
-                    {elseif $config.type == 'secret'}
-                        <div class="input-group b2b-secret-control">
-                            <input
-                                    type="password"
-                                    class="form-control b2b-config-field b2b-secret-field"
-                                    data-config-key="{$config.key|escape:'html':'UTF-8'}"
-                                    data-config-type="{$config.type|escape:'html':'UTF-8'}"
-                                    value="{$config.value|escape:'html':'UTF-8'}"
-                                    autocomplete="new-password"
-                                    spellcheck="false"
-                            />
-                            <span class="input-group-btn">
-                                <button type="button" class="btn btn-default b2b-toggle-secret" title="{l s='Show or hide key' mod='b2bpriceimport'}">
-                                    <i class="icon-eye"></i>
-                                </button>
-                                <button type="button" class="btn btn-default b2b-copy-secret" title="{l s='Copy key' mod='b2bpriceimport'}">
-                                    <i class="icon-copy"></i>
-                                </button>
-                                <button
-                                        type="button"
-                                        class="btn btn-primary b2b-generate-import-key"
-                                        {if !empty($config.value)}disabled="disabled"{/if}
-                                >
-                                    <i class="icon-refresh"></i>
-                                    {l s='Generate key' mod='b2bpriceimport'}
-                                </button>
+        {foreach from=$configGroups item=configGroup}
+            <div class="panel panel-default b2b-config-group">
+                <div class="panel-heading b2b-config-group-heading">
+                    <button
+                            type="button"
+                            class="b2b-config-group-toggle{if !empty($configGroup.collapsed)} collapsed{/if}"
+                            data-toggle="collapse"
+                            data-target="#b2b-config-group-{$configGroup.key|escape:'html':'UTF-8'}"
+                            aria-expanded="{if empty($configGroup.collapsed)}true{else}false{/if}"
+                            aria-controls="b2b-config-group-{$configGroup.key|escape:'html':'UTF-8'}"
+                    >
+                        <span class="b2b-config-group-title">
+                            <i class="{$configGroup.icon|escape:'html':'UTF-8'}"></i>
+                            {$configGroup.label|escape:'html':'UTF-8'}
+                            <i class="icon-chevron-down b2b-config-group-chevron"></i>
+                        </span>
+                        {if !empty($configGroup.description)}
+                            <span class="b2b-config-group-description">
+                                {$configGroup.description|escape:'html':'UTF-8'}
                             </span>
-                        </div>
-                        <div
-                                class="checkbox b2b-key-rotation-confirmation"
-                                {if empty($config.value)}style="display: none;"{/if}
-                        >
-                            <label>
-                                <input type="checkbox" class="b2b-confirm-key-rotation" />
-                                {l s='I understand that generating a new key will stop the 1C exchange until the key is updated in 1C.' mod='b2bpriceimport'}
-                            </label>
-                        </div>
-                    {elseif $config.type == 'integer'}
-                        <input
-                                type="number"
-                                class="form-control b2b-config-field"
-                                data-config-key="{$config.key|escape:'html':'UTF-8'}"
-                                data-config-type="{$config.type|escape:'html':'UTF-8'}"
-                                value="{$config.value|intval}"
-                                {if isset($config.min)}min="{$config.min|intval}"{/if}
-                                {if isset($config.max)}max="{$config.max|intval}"{/if}
-                        />
-                    {elseif $config.type == 'select'}
-                        <select
-                                class="form-control b2b-config-field"
-                                data-config-key="{$config.key|escape:'html':'UTF-8'}"
-                                data-config-type="{$config.type|escape:'html':'UTF-8'}"
-                        >
-                            {foreach from=$config.options item=option}
-                                <option
-                                        value="{$option.value|escape:'html':'UTF-8'}"
-                                        {if $option.value == $config.value}selected="selected"{/if}
-                                >
-                                    {$option.label|escape:'html':'UTF-8'}
-                                </option>
-                            {/foreach}
-                        </select>
-                    {else}
-                        <div class="alert alert-warning">
-                            {l s='Unsupported configuration field type:' mod='b2bpriceimport'}
-                            {$config.type|escape:'html':'UTF-8'}
-                        </div>
-                    {/if}
-
-                    {if isset($config.description) && $config.description}
-                        <p class="help-block">
-                            {$config.description|escape:'html':'UTF-8'}
-                        </p>
-                    {/if}
-
-                    <span class="b2b-config-status"></span>
+                        {/if}
+                    </button>
                 </div>
 
-                <div class="clearfix"></div>
+                <div
+                        id="b2b-config-group-{$configGroup.key|escape:'html':'UTF-8'}"
+                        class="panel-collapse collapse{if empty($configGroup.collapsed)} in{/if}"
+                >
+                    <div class="panel-body">
+                        {foreach from=$configGroup.definitions item=config}
+                            <div class="form-group b2b-config-row">
+                                <label class="control-label col-lg-3">
+                                    {$config.label|escape:'html':'UTF-8'}
+                                </label>
+
+                                <div class="col-lg-7">
+                                    {if $config.type == 'text'}
+                                        {if !empty($config.readonly)}
+                                            <div class="input-group b2b-readonly-config-control">
+                                                <input
+                                                        type="text"
+                                                        class="form-control b2b-readonly-config-field"
+                                                        value="{$config.value|escape:'html':'UTF-8'}"
+                                                        readonly="readonly"
+                                                        spellcheck="false"
+                                                />
+                                                {if !empty($config.copyable)}
+                                                    <span class="input-group-btn">
+                                                        <button type="button" class="btn btn-default b2b-copy-config-value">
+                                                            <i class="icon-copy"></i>
+                                                            {l s='Copy' mod='b2bpriceimport'}
+                                                        </button>
+                                                    </span>
+                                                {/if}
+                                            </div>
+                                        {else}
+                                            <input
+                                                    type="text"
+                                                    class="form-control b2b-config-field"
+                                                    data-config-key="{$config.key|escape:'html':'UTF-8'}"
+                                                    data-config-type="{$config.type|escape:'html':'UTF-8'}"
+                                                    value="{$config.value|escape:'html':'UTF-8'}"
+                                            />
+                                        {/if}
+                                    {elseif $config.type == 'secret'}
+                                        <div class="input-group b2b-secret-control">
+                                            <input
+                                                    type="password"
+                                                    class="form-control b2b-config-field b2b-secret-field"
+                                                    data-config-key="{$config.key|escape:'html':'UTF-8'}"
+                                                    data-config-type="{$config.type|escape:'html':'UTF-8'}"
+                                                    value="{$config.value|escape:'html':'UTF-8'}"
+                                                    autocomplete="new-password"
+                                                    spellcheck="false"
+                                            />
+                                            <span class="input-group-btn">
+                                                <button type="button" class="btn btn-default b2b-toggle-secret" title="{l s='Show or hide key' mod='b2bpriceimport'}">
+                                                    <i class="icon-eye"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-default b2b-copy-secret" title="{l s='Copy key' mod='b2bpriceimport'}">
+                                                    <i class="icon-copy"></i>
+                                                </button>
+                                                <button
+                                                        type="button"
+                                                        class="btn btn-primary b2b-generate-import-key"
+                                                        {if !empty($config.value)}disabled="disabled"{/if}
+                                                >
+                                                    <i class="icon-refresh"></i>
+                                                    {l s='Generate key' mod='b2bpriceimport'}
+                                                </button>
+                                            </span>
+                                        </div>
+                                        <div
+                                                class="checkbox b2b-key-rotation-confirmation"
+                                                {if empty($config.value)}style="display: none;"{/if}
+                                        >
+                                            <label>
+                                                <input type="checkbox" class="b2b-confirm-key-rotation" />
+                                                {l s='I understand that generating a new key will stop the 1C exchange until the key is updated in 1C.' mod='b2bpriceimport'}
+                                            </label>
+                                        </div>
+                                    {elseif $config.type == 'integer'}
+                                        <input
+                                                type="number"
+                                                class="form-control b2b-config-field"
+                                                data-config-key="{$config.key|escape:'html':'UTF-8'}"
+                                                data-config-type="{$config.type|escape:'html':'UTF-8'}"
+                                                value="{$config.value|intval}"
+                                                {if isset($config.min)}min="{$config.min|intval}"{/if}
+                                                {if isset($config.max)}max="{$config.max|intval}"{/if}
+                                        />
+                                    {elseif $config.type == 'select'}
+                                        <select
+                                                class="form-control b2b-config-field"
+                                                data-config-key="{$config.key|escape:'html':'UTF-8'}"
+                                                data-config-type="{$config.type|escape:'html':'UTF-8'}"
+                                        >
+                                            {foreach from=$config.options item=option}
+                                                <option
+                                                        value="{$option.value|escape:'html':'UTF-8'}"
+                                                        {if $option.value == $config.value}selected="selected"{/if}
+                                                >
+                                                    {$option.label|escape:'html':'UTF-8'}
+                                                </option>
+                                            {/foreach}
+                                        </select>
+                                    {else}
+                                        <div class="alert alert-warning">
+                                            {l s='Unsupported configuration field type:' mod='b2bpriceimport'}
+                                            {$config.type|escape:'html':'UTF-8'}
+                                        </div>
+                                    {/if}
+
+                                    {if isset($config.description) && $config.description}
+                                        <p class="help-block">
+                                            {$config.description|escape:'html':'UTF-8'}
+                                        </p>
+                                    {/if}
+
+                                    <span class="b2b-config-status"></span>
+                                </div>
+
+                                <div class="clearfix"></div>
+                            </div>
+                        {/foreach}
+
+                        {if !empty($configGroup.show_cli_command) && !empty($importCliCommand)}
+                            <div class="form-group b2b-config-row">
+                                <label class="control-label col-lg-3">
+                                    {l s='Terminal import command' mod='b2bpriceimport'}
+                                </label>
+
+                                <div class="col-lg-7">
+                                    <div class="input-group b2b-cli-command-control">
+                                        <input
+                                                type="text"
+                                                class="form-control b2b-cli-command-field"
+                                                value="{$importCliCommand|escape:'html':'UTF-8'}"
+                                                readonly="readonly"
+                                                spellcheck="false"
+                                        />
+                                        <span class="input-group-btn">
+                                            <button type="button" class="btn btn-default b2b-copy-cli-command">
+                                                <i class="icon-copy"></i>
+                                                {l s='Copy command' mod='b2bpriceimport'}
+                                            </button>
+                                        </span>
+                                    </div>
+                                    <p class="help-block">
+                                        {l s='The command reads all import parameters from the module settings above.' mod='b2bpriceimport'}
+                                    </p>
+                                    <span class="b2b-config-status"></span>
+                                </div>
+
+                                <div class="clearfix"></div>
+                            </div>
+                        {/if}
+                    </div>
+                </div>
             </div>
         {/foreach}
-
-        {if !empty($importCliCommand)}
-            <div class="form-group b2b-config-row">
-                <label class="control-label col-lg-3">
-                    {l s='Terminal import command' mod='b2bpriceimport'}
-                </label>
-
-                <div class="col-lg-6">
-                    <div class="input-group b2b-cli-command-control">
-                        <input
-                                type="text"
-                                class="form-control b2b-cli-command-field"
-                                value="{$importCliCommand|escape:'html':'UTF-8'}"
-                                readonly="readonly"
-                                spellcheck="false"
-                        />
-                        <span class="input-group-btn">
-                            <button type="button" class="btn btn-default b2b-copy-cli-command">
-                                <i class="icon-copy"></i>
-                                {l s='Copy command' mod='b2bpriceimport'}
-                            </button>
-                        </span>
-                    </div>
-                    <p class="help-block">
-                        {l s='The command reads all import parameters from the module settings above.' mod='b2bpriceimport'}
-                    </p>
-                    <span class="b2b-config-status"></span>
-                </div>
-
-                <div class="clearfix"></div>
-            </div>
-        {/if}
     {/if}
 </div>
 

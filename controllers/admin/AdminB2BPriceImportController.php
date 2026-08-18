@@ -8,6 +8,7 @@ if (file_exists(_PS_MODULE_DIR_ . 'b2bpriceimport/vendor/autoload.php')) {
     require_once _PS_MODULE_DIR_ . 'b2bpriceimport/vendor/autoload.php';
 }
 
+use B2B\PriceImport\Config\B2BPriceImportConfig;
 use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
 use B2B\PriceImport\Repository\ImportRepository;
 use B2B\PriceImport\Service\ImportFileStorageService;
@@ -65,14 +66,20 @@ class AdminB2BPriceImportController extends ModuleAdminController
 
         if ($activeSection === 'config') {
             $configRepository = $this->getConfigRepository();
-            $assign['configDefinitions'] = $configRepository->getDefinitions();
-            $assign['allGroups'] = $this->getAllCustomerGroups();
+            $assign['configGroups'] = $configRepository->getGroupedDefinitions(
+                B2BPriceImportConfig::SECTION_IMPORT
+            );
             $assign['importCliCommand'] = $this->buildImportCliCommand();
         }
 
         if ($activeSection === 'discount_matrix') {
+            $configRepository = $this->getConfigRepository();
             $assign['matrix'] = $this->buildMatrix();
             $assign['groups'] = $this->getCustomerGroups();
+            $assign['discountMatrixConfigGroups'] = $configRepository->getGroupedDefinitions(
+                B2BPriceImportConfig::SECTION_DISCOUNT_MATRIX
+            );
+            $assign['allGroups'] = $this->getAllCustomerGroups();
         }
 
         if ($activeSection === 'import') {
