@@ -38,6 +38,10 @@
         .b2b-checkbox-item input {
             margin-right: 7px;
         }
+
+        .b2b-secret-control .btn {
+            white-space: nowrap;
+        }
     </style>
 
     {if empty($configDefinitions)}
@@ -78,6 +82,30 @@
                                 data-config-type="{$config.type|escape:'html':'UTF-8'}"
                                 value="{$config.value|escape:'html':'UTF-8'}"
                         />
+                    {elseif $config.type == 'secret'}
+                        <div class="input-group b2b-secret-control">
+                            <input
+                                    type="password"
+                                    class="form-control b2b-config-field b2b-secret-field"
+                                    data-config-key="{$config.key|escape:'html':'UTF-8'}"
+                                    data-config-type="{$config.type|escape:'html':'UTF-8'}"
+                                    value="{$config.value|escape:'html':'UTF-8'}"
+                                    autocomplete="new-password"
+                                    spellcheck="false"
+                            />
+                            <span class="input-group-btn">
+                                <button type="button" class="btn btn-default b2b-toggle-secret" title="{l s='Show or hide key' mod='b2bpriceimport'}">
+                                    <i class="icon-eye"></i>
+                                </button>
+                                <button type="button" class="btn btn-default b2b-copy-secret" title="{l s='Copy key' mod='b2bpriceimport'}">
+                                    <i class="icon-copy"></i>
+                                </button>
+                                <button type="button" class="btn btn-primary b2b-generate-import-key">
+                                    <i class="icon-refresh"></i>
+                                    {l s='Generate key' mod='b2bpriceimport'}
+                                </button>
+                            </span>
+                        </div>
                     {elseif $config.type == 'integer'}
                         <input
                                 type="number"
@@ -180,6 +208,37 @@
             });
         }
 
+        function setConfigStatus($container, type, message) {
+            var $status = $container.closest('.form-group').find('.b2b-config-status');
+
+            $status
+                .removeClass('text-success text-danger text-warning')
+                .addClass(type)
+                .text(message);
+        }
+
+        function copyText(value, onSuccess, onError) {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(value).then(onSuccess).catch(onError);
+                return;
+            }
+
+            var $temporary = $('<textarea>')
+                .css({ position: 'fixed', opacity: 0 })
+                .val(value)
+                .appendTo('body');
+
+            $temporary[0].select();
+
+            try {
+                document.execCommand('copy') ? onSuccess() : onError();
+            } catch (error) {
+                onError();
+            }
+
+            $temporary.remove();
+        }
+
         $('.b2b-config-checkbox').on('change', function () {
             var $container = $(this).closest('.b2b-config-checkbox-list');
             saveConfig($container, getCheckedConfigValues($container));
@@ -188,6 +247,71 @@
         $('.b2b-config-field').on('change', function () {
             var $field = $(this);
             saveConfig($field, $field.val());
+        });
+
+        $('.b2b-toggle-secret').on('click', function () {
+            var $field = $(this).closest('.b2b-secret-control').find('.b2b-secret-field');
+            var showKey = $field.attr('type') === 'password';
+
+            $field.attr('type', showKey ? 'text' : 'password');
+            $(this).find('i').toggleClass('icon-eye', !showKey).toggleClass('icon-eye-close', showKey);
+        });
+
+        $('.b2b-copy-secret').on('click', function () {
+            var $control = $(this).closest('.b2b-secret-control');
+            var value = $control.find('.b2b-secret-field').val();
+
+            if (!value) {
+                setConfigStatus($control, 'text-danger', 'There is no key to copy.');
+                return;
+            }
+
+            copyText(
+                value,
+                function () { setConfigStatus($control, 'text-success', 'Key copied.'); },
+                function () { setConfigStatus($control, 'text-danger', 'Cannot copy the key.'); }
+            );
+        });
+
+        $('.b2b-generate-import-key').on('click', function () {
+            var $button = $(this);
+            var $control = $button.closest('.b2b-secret-control');
+            var $field = $control.find('.b2b-secret-field');
+
+            if ($field.val() && !window.confirm('Generate a new key? The current key will stop working.')) {
+                return;
+            }
+
+            $button.prop('disabled', true);
+            setConfigStatus($control, 'text-warning', 'Generating...');
+
+            $.ajax({
+                url: b2bPriceImportAjaxUrl,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    ajax: 1,
+                    action: 'GenerateImportApiKey'
+                },
+                success: function (response) {
+                    if (response && response.success && response.value) {
+                        $field.val(response.value);
+                        setConfigStatus($control, 'text-success', response.message || 'Key generated.');
+                    } else {
+                        setConfigStatus(
+                            $control,
+                            'text-danger',
+                            response && response.message ? response.message : 'Cannot generate the key.'
+                        );
+                    }
+                },
+                error: function () {
+                    setConfigStatus($control, 'text-danger', 'Server error.');
+                },
+                complete: function () {
+                    $button.prop('disabled', false);
+                }
+            });
         });
     });
 </script>
