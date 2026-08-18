@@ -35,6 +35,64 @@ final class B2BPriceImportConfig
     public const SECTION_DISCOUNT_MATRIX = 'discount_matrix';
     public const SECTION_IMPORT = 'import';
 
+    public const GROUP_1C_INTEGRATION = '1c_integration';
+    public const GROUP_IMPORT_PROCESSING = 'import_processing';
+    public const GROUP_ADVANCED_CLI = 'advanced_cli';
+    public const GROUP_SYSTEM_INFORMATION = 'system_information';
+    public const GROUP_DISCOUNT_MATRIX = 'discount_matrix';
+
+    public function getGroups(): array
+    {
+        return [
+            [
+                'key' => self::GROUP_1C_INTEGRATION,
+                'section' => self::SECTION_IMPORT,
+                'label' => '1C integration',
+                'description' => 'Access settings used by 1C to start the import.',
+                'icon' => 'icon-exchange',
+                'collapsed' => false,
+                'order' => 10,
+            ],
+            [
+                'key' => self::GROUP_IMPORT_PROCESSING,
+                'section' => self::SECTION_IMPORT,
+                'label' => 'Import processing',
+                'description' => 'Controls how many import rows are processed in one batch.',
+                'icon' => 'icon-tasks',
+                'collapsed' => false,
+                'order' => 20,
+            ],
+            [
+                'key' => self::GROUP_ADVANCED_CLI,
+                'section' => self::SECTION_IMPORT,
+                'label' => 'Advanced CLI settings',
+                'description' => 'File scanner, runtime, locking, and terminal output defaults.',
+                'icon' => 'icon-terminal',
+                'collapsed' => true,
+                'order' => 30,
+            ],
+            [
+                'key' => self::GROUP_SYSTEM_INFORMATION,
+                'section' => self::SECTION_IMPORT,
+                'label' => 'System information',
+                'description' => 'Read-only paths and the ready-to-copy terminal command.',
+                'icon' => 'icon-info-circle',
+                'collapsed' => false,
+                'show_cli_command' => true,
+                'order' => 40,
+            ],
+            [
+                'key' => self::GROUP_DISCOUNT_MATRIX,
+                'section' => self::SECTION_DISCOUNT_MATRIX,
+                'label' => 'Discount Matrix display',
+                'description' => 'Choose which customer groups are visible in the matrix.',
+                'icon' => 'icon-users',
+                'collapsed' => false,
+                'order' => 10,
+            ],
+        ];
+    }
+
     public function getDefinitions(): array
     {
         return [
@@ -56,6 +114,7 @@ final class B2BPriceImportConfig
         return [
             'key' => self::IMPORT_API_KEY,
             'section' => self::SECTION_IMPORT,
+            'group' => self::GROUP_1C_INTEGRATION,
             'type' => self::TYPE_SECRET,
             'storage' => self::STORAGE_SCALAR,
             'default' => '',
@@ -71,6 +130,7 @@ final class B2BPriceImportConfig
         return [
             'key' => self::EXCLUDED_GROUPS_FROM_DISCOUNT_MATRIX,
             'section' => self::SECTION_DISCOUNT_MATRIX,
+            'group' => self::GROUP_DISCOUNT_MATRIX,
             'type' => self::TYPE_GROUP_MULTISELECT,
             'storage' => self::STORAGE_JSON,
             'default' => [],
@@ -85,6 +145,7 @@ final class B2BPriceImportConfig
         return [
             'key' => self::IMPORT_SCAN_DIR,
             'section' => self::SECTION_IMPORT,
+            'group' => self::GROUP_SYSTEM_INFORMATION,
             'type' => self::TYPE_TEXT,
             'storage' => self::STORAGE_SCALAR,
             'default' => ImportFileStorageService::getDefaultDirectory(),
@@ -101,6 +162,7 @@ final class B2BPriceImportConfig
         return [
             'key' => self::IMPORT_MAX_FILE_AGE_HOURS,
             'section' => self::SECTION_IMPORT,
+            'group' => self::GROUP_ADVANCED_CLI,
             'type' => self::TYPE_INTEGER,
             'storage' => self::STORAGE_SCALAR,
             'default' => 24,
@@ -116,6 +178,7 @@ final class B2BPriceImportConfig
         return [
             'key' => self::IMPORT_SCAN_LIMIT,
             'section' => self::SECTION_IMPORT,
+            'group' => self::GROUP_ADVANCED_CLI,
             'type' => self::TYPE_INTEGER,
             'storage' => self::STORAGE_SCALAR,
             'default' => 1,
@@ -131,6 +194,7 @@ final class B2BPriceImportConfig
         return [
             'key' => self::IMPORT_RUN_TYPE,
             'section' => self::SECTION_IMPORT,
+            'group' => self::GROUP_ADVANCED_CLI,
             'type' => self::TYPE_SELECT,
             'storage' => self::STORAGE_SCALAR,
             'default' => 'all',
@@ -149,6 +213,7 @@ final class B2BPriceImportConfig
         return [
             'key' => self::IMPORT_BATCH_LIMIT,
             'section' => self::SECTION_IMPORT,
+            'group' => self::GROUP_IMPORT_PROCESSING,
             'type' => self::TYPE_INTEGER,
             'storage' => self::STORAGE_SCALAR,
             'default' => 500,
@@ -164,6 +229,7 @@ final class B2BPriceImportConfig
         return [
             'key' => self::IMPORT_TIME_LIMIT,
             'section' => self::SECTION_IMPORT,
+            'group' => self::GROUP_ADVANCED_CLI,
             'type' => self::TYPE_INTEGER,
             'storage' => self::STORAGE_SCALAR,
             'default' => 55,
@@ -179,6 +245,7 @@ final class B2BPriceImportConfig
         return [
             'key' => self::IMPORT_LOCK_TTL,
             'section' => self::SECTION_IMPORT,
+            'group' => self::GROUP_ADVANCED_CLI,
             'type' => self::TYPE_INTEGER,
             'storage' => self::STORAGE_SCALAR,
             'default' => 120,
@@ -194,6 +261,7 @@ final class B2BPriceImportConfig
         return [
             'key' => self::IMPORT_OUTPUT_FORMAT,
             'section' => self::SECTION_IMPORT,
+            'group' => self::GROUP_ADVANCED_CLI,
             'type' => self::TYPE_SELECT,
             'storage' => self::STORAGE_SCALAR,
             'default' => 'text',

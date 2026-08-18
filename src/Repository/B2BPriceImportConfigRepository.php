@@ -21,16 +21,51 @@ final class B2BPriceImportConfigRepository
         $this->config = $config ?: new B2BPriceImportConfig();
     }
 
-    public function getDefinitions(): array
+    public function getDefinitions(?string $section = null): array
     {
         $definitions = [];
 
         foreach ($this->config->getDefinitions() as $definition) {
+            if ($section !== null && ($definition['section'] ?? null) !== $section) {
+                continue;
+            }
+
             $definition['value'] = $this->get($definition['key']);
             $definitions[] = $definition;
         }
 
         return $definitions;
+    }
+
+    public function getGroupedDefinitions(string $section): array
+    {
+        $definitionsByGroup = [];
+
+        foreach ($this->getDefinitions($section) as $definition) {
+            $groupKey = (string) ($definition['group'] ?? '');
+
+            if ($groupKey !== '') {
+                $definitionsByGroup[$groupKey][] = $definition;
+            }
+        }
+
+        $groups = [];
+
+        foreach ($this->config->getGroups() as $group) {
+            if (($group['section'] ?? null) !== $section) {
+                continue;
+            }
+
+            $groupKey = (string) ($group['key'] ?? '');
+            $group['definitions'] = $definitionsByGroup[$groupKey] ?? [];
+            $groups[] = $group;
+        }
+
+        usort($groups, static function (array $left, array $right): int {
+            return (int) ($left['order'] ?? 0) <=> (int) ($right['order'] ?? 0);
+        });
+
+        return $groups;
     }
 
     /**

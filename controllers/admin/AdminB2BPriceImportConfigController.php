@@ -8,6 +8,7 @@ if (file_exists(_PS_MODULE_DIR_ . 'b2bpriceimport/vendor/autoload.php')) {
     require_once _PS_MODULE_DIR_ . 'b2bpriceimport/vendor/autoload.php';
 }
 
+use B2B\PriceImport\Config\B2BPriceImportConfig;
 use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
 
 
@@ -30,8 +31,9 @@ class AdminB2BPriceImportConfigController extends ModuleAdminController
         $configRepository = $this->getConfigRepository();
 
         $this->context->smarty->assign([
-            'configDefinitions' => $configRepository->getDefinitions(),
-            'allGroups' => $this->getAllCustomerGroups(),
+            'configGroups' => $configRepository->getGroupedDefinitions(
+                B2BPriceImportConfig::SECTION_IMPORT
+            ),
             'ajaxUrl' => $this->context->link->getAdminLink('AdminB2BPriceImportConfig', true),
         ]);
 
@@ -80,24 +82,4 @@ class AdminB2BPriceImportConfigController extends ModuleAdminController
         return new B2BPriceImportConfigRepository();
     }
 
-    /**
-     * @return array
-     */
-    private function getAllCustomerGroups(): array
-    {
-        $sql = new DbQuery();
-        $sql->select('g.id_group, gl.name');
-        $sql->from('group', 'g');
-        $sql->innerJoin(
-            'group_lang',
-            'gl',
-            'gl.id_group = g.id_group
-             AND gl.id_lang = ' . (int) $this->context->language->id
-        );
-        $sql->orderBy('g.id_group ASC');
-
-        $rows = Db::getInstance()->executeS($sql);
-
-        return is_array($rows) ? $rows : [];
-    }
 }
