@@ -50,7 +50,7 @@ final class B2BPriceImportConfig
                 'label' => '1C integration',
                 'description' => 'Access settings used by 1C to start the import.',
                 'icon' => 'icon-exchange',
-                'collapsed' => false,
+                'collapsed' => true,
                 'order' => 10,
             ],
             [
@@ -59,7 +59,7 @@ final class B2BPriceImportConfig
                 'label' => 'Import processing',
                 'description' => 'Controls how many import rows are processed in one batch.',
                 'icon' => 'icon-tasks',
-                'collapsed' => false,
+                'collapsed' => true,
                 'order' => 20,
             ],
             [
@@ -77,7 +77,7 @@ final class B2BPriceImportConfig
                 'label' => 'System information',
                 'description' => 'Read-only paths and the ready-to-copy terminal command.',
                 'icon' => 'icon-info-circle',
-                'collapsed' => false,
+                'collapsed' => true,
                 'show_cli_command' => true,
                 'order' => 40,
             ],
