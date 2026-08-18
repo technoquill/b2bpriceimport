@@ -551,24 +551,40 @@ class AdminB2BPriceImportController extends ModuleAdminController
         $consolePath = rtrim((string) _PS_ROOT_DIR_, '/\\') . DIRECTORY_SEPARATOR . 'bin/console';
         $phpBinary = $this->resolveCliPhpBinary();
         $phpCommand = $phpBinary === 'php' ? $phpBinary : escapeshellarg($phpBinary);
+        $phpIni = php_ini_loaded_file();
+        $phpIniOption = $phpBinary !== 'php' && is_string($phpIni) && is_readable($phpIni)
+            ? ' -c ' . escapeshellarg($phpIni)
+            : '';
 
         return sprintf(
-            '%s %s b2b:price-import:run --env=prod --no-debug',
+            '%s%s %s b2b:price-import:run --env=prod --no-debug',
             $phpCommand,
+            $phpIniOption,
             escapeshellarg($consolePath)
         );
     }
 
     private function resolveCliPhpBinary(): string
     {
-        if (PHP_OS_FAMILY === 'Darwin') {
-            $mampPhpBinary = sprintf(
-                '/Applications/MAMP/bin/php/php%s/bin/php',
-                PHP_VERSION
-            );
+        $runtimeBinary = trim((string) PHP_BINARY);
+        $binaryDirectory = rtrim((string) PHP_BINDIR, '/\\');
+        $candidates = [];
 
-            if (is_executable($mampPhpBinary)) {
-                return $mampPhpBinary;
+        if ($runtimeBinary !== '') {
+            if (PHP_SAPI === 'cli') {
+                $candidates[] = $runtimeBinary;
+            }
+
+            $candidates[] = dirname($runtimeBinary) . DIRECTORY_SEPARATOR . 'php';
+        }
+
+        if ($binaryDirectory !== '') {
+            $candidates[] = $binaryDirectory . DIRECTORY_SEPARATOR . 'php';
+        }
+
+        foreach (array_unique($candidates) as $candidate) {
+            if (is_file($candidate) && is_executable($candidate)) {
+                return $candidate;
             }
         }
 
