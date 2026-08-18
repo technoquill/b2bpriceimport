@@ -42,6 +42,11 @@
         .b2b-secret-control .btn {
             white-space: nowrap;
         }
+
+        .b2b-key-rotation-confirmation {
+            margin: 8px 0 0;
+            color: #a94442;
+        }
     </style>
 
     {if empty($configDefinitions)}
@@ -100,11 +105,24 @@
                                 <button type="button" class="btn btn-default b2b-copy-secret" title="{l s='Copy key' mod='b2bpriceimport'}">
                                     <i class="icon-copy"></i>
                                 </button>
-                                <button type="button" class="btn btn-primary b2b-generate-import-key">
+                                <button
+                                        type="button"
+                                        class="btn btn-primary b2b-generate-import-key"
+                                        {if !empty($config.value)}disabled="disabled"{/if}
+                                >
                                     <i class="icon-refresh"></i>
                                     {l s='Generate key' mod='b2bpriceimport'}
                                 </button>
                             </span>
+                        </div>
+                        <div
+                                class="checkbox b2b-key-rotation-confirmation"
+                                {if empty($config.value)}style="display: none;"{/if}
+                        >
+                            <label>
+                                <input type="checkbox" class="b2b-confirm-key-rotation" />
+                                {l s='I understand that generating a new key will stop the 1C exchange until the key is updated in 1C.' mod='b2bpriceimport'}
+                            </label>
                         </div>
                     {elseif $config.type == 'integer'}
                         <input
@@ -249,6 +267,17 @@
             saveConfig($field, $field.val());
         });
 
+        $('.b2b-secret-field').on('change', function () {
+            var $field = $(this);
+            var $control = $field.closest('.b2b-secret-control');
+            var $confirmation = $control.siblings('.b2b-key-rotation-confirmation');
+            var hasKey = Boolean($field.val());
+
+            $confirmation.toggle(hasKey);
+            $confirmation.find('.b2b-confirm-key-rotation').prop('checked', false);
+            $control.find('.b2b-generate-import-key').prop('disabled', hasKey);
+        });
+
         $('.b2b-toggle-secret').on('click', function () {
             var $field = $(this).closest('.b2b-secret-control').find('.b2b-secret-field');
             var showKey = $field.attr('type') === 'password';
@@ -273,12 +302,26 @@
             );
         });
 
+        $('.b2b-confirm-key-rotation').on('change', function () {
+            var $confirmation = $(this).closest('.b2b-key-rotation-confirmation');
+            var $control = $confirmation.siblings('.b2b-secret-control');
+
+            $control.find('.b2b-generate-import-key').prop('disabled', !$(this).prop('checked'));
+        });
+
         $('.b2b-generate-import-key').on('click', function () {
             var $button = $(this);
             var $control = $button.closest('.b2b-secret-control');
             var $field = $control.find('.b2b-secret-field');
+            var $confirmation = $control.siblings('.b2b-key-rotation-confirmation');
+            var $confirmationCheckbox = $confirmation.find('.b2b-confirm-key-rotation');
 
-            if ($field.val() && !window.confirm('Generate a new key? The current key will stop working.')) {
+            if ($field.val() && !$confirmationCheckbox.prop('checked')) {
+                setConfigStatus(
+                    $control,
+                    'text-danger',
+                    'Confirm that the 1C exchange will stop before generating a new key.'
+                );
                 return;
             }
 
@@ -296,6 +339,8 @@
                 success: function (response) {
                     if (response && response.success && response.value) {
                         $field.val(response.value);
+                        $confirmation.show();
+                        $confirmationCheckbox.prop('checked', false);
                         setConfigStatus($control, 'text-success', response.message || 'Key generated.');
                     } else {
                         setConfigStatus(
@@ -309,7 +354,10 @@
                     setConfigStatus($control, 'text-danger', 'Server error.');
                 },
                 complete: function () {
-                    $button.prop('disabled', false);
+                    $button.prop(
+                        'disabled',
+                        Boolean($field.val()) && !$confirmationCheckbox.prop('checked')
+                    );
                 }
             });
         });
