@@ -28,7 +28,7 @@ final class ImportFileStorage
             throw new \RuntimeException('Only CSV files are allowed.');
         }
 
-        $importDir = rtrim($this->moduleDir, '/\\') . '/var/imports';
+        $importDir = ImportFileStorageService::getDirectoryForModule($this->moduleDir);
 
         if (!is_dir($importDir) && !mkdir($importDir, 0755, true) && !is_dir($importDir)) {
             throw new \RuntimeException('Cannot create import directory.');

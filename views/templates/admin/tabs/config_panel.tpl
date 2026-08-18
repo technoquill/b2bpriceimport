@@ -80,13 +80,33 @@
                             {/foreach}
                         </div>
                     {elseif $config.type == 'text'}
-                        <input
-                                type="text"
-                                class="form-control b2b-config-field"
-                                data-config-key="{$config.key|escape:'html':'UTF-8'}"
-                                data-config-type="{$config.type|escape:'html':'UTF-8'}"
-                                value="{$config.value|escape:'html':'UTF-8'}"
-                        />
+                        {if !empty($config.readonly)}
+                            <div class="input-group b2b-readonly-config-control">
+                                <input
+                                        type="text"
+                                        class="form-control b2b-readonly-config-field"
+                                        value="{$config.value|escape:'html':'UTF-8'}"
+                                        readonly="readonly"
+                                        spellcheck="false"
+                                />
+                                {if !empty($config.copyable)}
+                                    <span class="input-group-btn">
+                                        <button type="button" class="btn btn-default b2b-copy-config-value">
+                                            <i class="icon-copy"></i>
+                                            {l s='Copy' mod='b2bpriceimport'}
+                                        </button>
+                                    </span>
+                                {/if}
+                            </div>
+                        {else}
+                            <input
+                                    type="text"
+                                    class="form-control b2b-config-field"
+                                    data-config-key="{$config.key|escape:'html':'UTF-8'}"
+                                    data-config-type="{$config.type|escape:'html':'UTF-8'}"
+                                    value="{$config.value|escape:'html':'UTF-8'}"
+                            />
+                        {/if}
                     {elseif $config.type == 'secret'}
                         <div class="input-group b2b-secret-control">
                             <input
@@ -342,6 +362,17 @@
                 command,
                 function () { setConfigStatus($control, 'text-success', 'Command copied.'); },
                 function () { setConfigStatus($control, 'text-danger', 'Cannot copy the command.'); }
+            );
+        });
+
+        $('.b2b-copy-config-value').on('click', function () {
+            var $control = $(this).closest('.b2b-readonly-config-control');
+            var value = $control.find('.b2b-readonly-config-field').val();
+
+            copyText(
+                value,
+                function () { setConfigStatus($control, 'text-success', 'Value copied.'); },
+                function () { setConfigStatus($control, 'text-danger', 'Cannot copy the value.'); }
             );
         });
 
