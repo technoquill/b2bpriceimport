@@ -85,7 +85,10 @@ final class ImportFileScannerService
                 continue;
             }
 
-            if ($repository->findByFileHash($hash) !== null || $repository->findByFilePath($filePath) !== null) {
+            // 1C may replace a price file while keeping the same filename. The
+            // content hash identifies an already imported file; the path does
+            // not, because a new file version can legitimately reuse it.
+            if ($repository->findByFileHash($hash) !== null) {
                 $skipped[] = [
                     'file' => $filePath,
                     'reason' => 'already_registered',

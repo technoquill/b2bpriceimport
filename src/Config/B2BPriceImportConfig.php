@@ -19,11 +19,13 @@ final class B2BPriceImportConfig
     public const IMPORT_TIME_LIMIT = 'B2BPRICEIMPORT_IMPORT_TIME_LIMIT';
     public const IMPORT_LOCK_TTL = 'B2BPRICEIMPORT_IMPORT_LOCK_TTL';
     public const IMPORT_OUTPUT_FORMAT = 'B2BPRICEIMPORT_IMPORT_OUTPUT_FORMAT';
+    public const IMPORT_API_KEY = 'B2BPRICEIMPORT_IMPORT_API_KEY';
 
     public const TYPE_GROUP_MULTISELECT = 'group_multiselect';
     public const TYPE_TEXT = 'text';
     public const TYPE_INTEGER = 'integer';
     public const TYPE_SELECT = 'select';
+    public const TYPE_SECRET = 'secret';
 
     public const STORAGE_JSON = 'json';
     public const STORAGE_SCALAR = 'scalar';
@@ -35,6 +37,7 @@ final class B2BPriceImportConfig
     {
         return [
             $this->excludedGroupsFromDiscountMatrix(),
+            $this->importApiKey(),
             $this->importScanDir(),
             $this->importMaxFileAgeHours(),
             $this->importScanLimit(),
@@ -43,6 +46,21 @@ final class B2BPriceImportConfig
             $this->importTimeLimit(),
             $this->importLockTtl(),
             $this->importOutputFormat(),
+        ];
+    }
+
+    public function importApiKey(): array
+    {
+        return [
+            'key' => self::IMPORT_API_KEY,
+            'section' => self::SECTION_IMPORT,
+            'type' => self::TYPE_SECRET,
+            'storage' => self::STORAGE_SCALAR,
+            'default' => '',
+            'min_length' => 32,
+            'max_length' => 255,
+            'label' => 'Import URL access key',
+            'description' => 'Secret key required to start an import through the URL. Enter a key or generate a secure one.',
         ];
     }
 
