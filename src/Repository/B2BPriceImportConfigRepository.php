@@ -91,6 +91,24 @@ final class B2BPriceImportConfigRepository
     /**
      * @throws Exception
      */
+    public function getImportApiKey(): string
+    {
+        return (string) $this->get(B2BPriceImportConfig::IMPORT_API_KEY);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function generateImportApiKey(): string
+    {
+        $key = bin2hex(random_bytes(32));
+
+        return (string) $this->save(B2BPriceImportConfig::IMPORT_API_KEY, $key);
+    }
+
+    /**
+     * @throws Exception
+     */
     public function getImportScanDir(): string
     {
         return (string) $this->get(B2BPriceImportConfig::IMPORT_SCAN_DIR);
@@ -202,6 +220,32 @@ final class B2BPriceImportConfigRepository
 
         if ($type === B2BPriceImportConfig::TYPE_TEXT) {
             return trim((string) $value);
+        }
+
+        if ($type === B2BPriceImportConfig::TYPE_SECRET) {
+            $value = trim((string) $value);
+
+            if ($value === '') {
+                return '';
+            }
+
+            $length = strlen($value);
+            $minLength = isset($definition['min_length']) ? (int) $definition['min_length'] : 1;
+            $maxLength = isset($definition['max_length']) ? (int) $definition['max_length'] : 255;
+
+            if ($length < $minLength || $length > $maxLength) {
+                throw new Exception(sprintf(
+                    'Secret value must contain between %d and %d characters.',
+                    $minLength,
+                    $maxLength
+                ));
+            }
+
+            if (preg_match('/[\x00-\x20\x7F]/', $value) === 1) {
+                throw new Exception('Secret value cannot contain whitespace or control characters.');
+            }
+
+            return $value;
         }
 
         if ($type === B2BPriceImportConfig::TYPE_INTEGER) {

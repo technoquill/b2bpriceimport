@@ -250,6 +250,26 @@ class AdminB2BPriceImportController extends ModuleAdminController
         }
     }
 
+    public function ajaxProcessGenerateImportApiKey()
+    {
+        header('Content-Type: application/json');
+
+        try {
+            $key = $this->getConfigRepository()->generateImportApiKey();
+
+            die(json_encode([
+                'success' => true,
+                'message' => 'A new import URL access key was generated and saved.',
+                'value' => $key,
+            ]));
+        } catch (Throwable $e) {
+            die(json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]));
+        }
+    }
+
     public function ajaxProcessCreateImport()
     {
         header('Content-Type: application/json');
