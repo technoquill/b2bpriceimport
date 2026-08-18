@@ -44,6 +44,10 @@ final class B2BPriceImportConfigRepository
             throw new Exception('Unknown configuration key: ' . $key);
         }
 
+        if (isset($definition['persisted']) && $definition['persisted'] === false) {
+            return $definition['default'];
+        }
+
         $rawValue = Configuration::get($key);
 
         if ($rawValue === false || $rawValue === null || $rawValue === '') {
@@ -62,6 +66,10 @@ final class B2BPriceImportConfigRepository
 
         if ($definition === null) {
             throw new Exception('Unknown configuration key: ' . $key);
+        }
+
+        if (!empty($definition['readonly'])) {
+            throw new Exception('This configuration value is read-only.');
         }
 
         $normalizedValue = $this->normalizeForStorage($definition, $value);

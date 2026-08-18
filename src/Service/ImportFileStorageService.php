@@ -10,8 +10,27 @@ use RuntimeException;
 
 final class ImportFileStorageService
 {
+    private const MODULE_NAME = 'b2bpriceimport';
+    private const IMPORT_RELATIVE_DIRECTORY = 'var/imports';
+
     public function __construct(private readonly ?string $baseDirectory = null)
     {
+    }
+
+    public static function getDefaultDirectory(): string
+    {
+        $moduleDirectory = rtrim((string) _PS_MODULE_DIR_, '/\\')
+            . DIRECTORY_SEPARATOR
+            . self::MODULE_NAME;
+
+        return self::getDirectoryForModule($moduleDirectory);
+    }
+
+    public static function getDirectoryForModule(string $moduleDirectory): string
+    {
+        return rtrim($moduleDirectory, '/\\')
+            . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, self::IMPORT_RELATIVE_DIRECTORY);
     }
 
     public function storeUploadedCsv(array $file, ?int $createdBy): ImportCreateData
@@ -192,6 +211,6 @@ final class ImportFileStorageService
 
     private function getBaseDirectory(): string
     {
-        return $this->baseDirectory ?: _PS_MODULE_DIR_ . 'b2bpriceimport/var/imports';
+        return $this->baseDirectory ?: self::getDefaultDirectory();
     }
 }

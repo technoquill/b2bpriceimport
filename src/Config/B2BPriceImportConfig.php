@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace B2B\PriceImport\Config;
 
+use B2B\PriceImport\Service\ImportFileStorageService;
+
 if (!defined('_PS_VERSION_')) {
     exit;
 }
@@ -85,9 +87,12 @@ final class B2BPriceImportConfig
             'section' => self::SECTION_IMPORT,
             'type' => self::TYPE_TEXT,
             'storage' => self::STORAGE_SCALAR,
-            'default' => _PS_MODULE_DIR_ . 'b2bpriceimport/var/imports',
+            'default' => ImportFileStorageService::getDefaultDirectory(),
+            'persisted' => false,
+            'readonly' => true,
+            'copyable' => true,
             'label' => 'Import scan directory',
-            'description' => 'Directory where the CLI command scans for fresh CSV files when --import-id is omitted.',
+            'description' => 'Read-only directory where the CLI command scans for fresh CSV files when --import-id is omitted.',
         ];
     }
 
