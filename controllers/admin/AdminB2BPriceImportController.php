@@ -549,11 +549,30 @@ class AdminB2BPriceImportController extends ModuleAdminController
     private function buildImportCliCommand(): string
     {
         $consolePath = rtrim((string) _PS_ROOT_DIR_, '/\\') . DIRECTORY_SEPARATOR . 'bin/console';
+        $phpBinary = $this->resolveCliPhpBinary();
+        $phpCommand = $phpBinary === 'php' ? $phpBinary : escapeshellarg($phpBinary);
 
         return sprintf(
-            'php %s b2b:price-import:run --env=prod --no-debug',
+            '%s %s b2b:price-import:run --env=prod --no-debug',
+            $phpCommand,
             escapeshellarg($consolePath)
         );
+    }
+
+    private function resolveCliPhpBinary(): string
+    {
+        if (PHP_OS_FAMILY === 'Darwin') {
+            $mampPhpBinary = sprintf(
+                '/Applications/MAMP/bin/php/php%s/bin/php',
+                PHP_VERSION
+            );
+
+            if (is_executable($mampPhpBinary)) {
+                return $mampPhpBinary;
+            }
+        }
+
+        return 'php';
     }
 
     private function runImportToCompletion(int $idImport): array
