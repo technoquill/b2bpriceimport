@@ -168,6 +168,38 @@
                 <div class="clearfix"></div>
             </div>
         {/foreach}
+
+        {if !empty($importCliCommand)}
+            <div class="form-group b2b-config-row">
+                <label class="control-label col-lg-3">
+                    {l s='Terminal import command' mod='b2bpriceimport'}
+                </label>
+
+                <div class="col-lg-6">
+                    <div class="input-group b2b-cli-command-control">
+                        <input
+                                type="text"
+                                class="form-control b2b-cli-command-field"
+                                value="{$importCliCommand|escape:'html':'UTF-8'}"
+                                readonly="readonly"
+                                spellcheck="false"
+                        />
+                        <span class="input-group-btn">
+                            <button type="button" class="btn btn-default b2b-copy-cli-command">
+                                <i class="icon-copy"></i>
+                                {l s='Copy command' mod='b2bpriceimport'}
+                            </button>
+                        </span>
+                    </div>
+                    <p class="help-block">
+                        {l s='The command reads all import parameters from the module settings above.' mod='b2bpriceimport'}
+                    </p>
+                    <span class="b2b-config-status"></span>
+                </div>
+
+                <div class="clearfix"></div>
+            </div>
+        {/if}
     {/if}
 </div>
 
@@ -299,6 +331,17 @@
                 value,
                 function () { setConfigStatus($control, 'text-success', 'Key copied.'); },
                 function () { setConfigStatus($control, 'text-danger', 'Cannot copy the key.'); }
+            );
+        });
+
+        $('.b2b-copy-cli-command').on('click', function () {
+            var $control = $(this).closest('.b2b-cli-command-control');
+            var command = $control.find('.b2b-cli-command-field').val();
+
+            copyText(
+                command,
+                function () { setConfigStatus($control, 'text-success', 'Command copied.'); },
+                function () { setConfigStatus($control, 'text-danger', 'Cannot copy the command.'); }
             );
         });
 

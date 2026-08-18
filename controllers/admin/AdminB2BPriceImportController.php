@@ -67,6 +67,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $configRepository = $this->getConfigRepository();
             $assign['configDefinitions'] = $configRepository->getDefinitions();
             $assign['allGroups'] = $this->getAllCustomerGroups();
+            $assign['importCliCommand'] = $this->buildImportCliCommand();
         }
 
         if ($activeSection === 'discount_matrix') {
@@ -543,6 +544,16 @@ class AdminB2BPriceImportController extends ModuleAdminController
     private function getImportRepository(): ImportRepository
     {
         return new ImportRepository();
+    }
+
+    private function buildImportCliCommand(): string
+    {
+        $consolePath = rtrim((string) _PS_ROOT_DIR_, '/\\') . DIRECTORY_SEPARATOR . 'bin/console';
+
+        return sprintf(
+            'php %s b2b:price-import:run --env=prod --no-debug',
+            escapeshellarg($consolePath)
+        );
     }
 
     private function runImportToCompletion(int $idImport): array
