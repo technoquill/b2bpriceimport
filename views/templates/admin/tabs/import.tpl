@@ -75,7 +75,7 @@
             </div>
         </div>
 
-        <div id="b2b-stored-files-section" class="form-group hidden">
+        <div id="b2b-stored-files-section" class="form-group">
             <label class="control-label col-lg-3">
                 {l s='Stored CSV files' mod='b2bpriceimport'}
             </label>
@@ -362,7 +362,6 @@
         var uploadSourceRadio = document.getElementById('b2b-source-upload');
         var existingSourceRadio = document.getElementById('b2b-source-existing');
         var existingFileHelp = document.getElementById('b2b-existing-file-help');
-        var storedFilesSection = document.getElementById('b2b-stored-files-section');
         var storedFilesMessage = document.getElementById('b2b-stored-files-message');
         var storedFilesEmpty = document.getElementById('b2b-stored-files-empty');
         var storedFilesTableWrapper = document.getElementById('b2b-stored-files-table-wrapper');
@@ -637,7 +636,6 @@
 
             uploadFileGroup.classList.toggle('hidden', useExistingFile);
             existingFileGroup.classList.toggle('hidden', !useExistingFile);
-            storedFilesSection.classList.toggle('hidden', !useExistingFile);
             uploadFile.disabled = useExistingFile;
             uploadFile.required = !useExistingFile;
             existingImport.disabled = !useExistingFile;
