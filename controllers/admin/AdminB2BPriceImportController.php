@@ -68,9 +68,11 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $configRepository = $this->getConfigRepository();
             $importApiKey = $configRepository->getImportApiKey();
             $importTriggerBaseUrl = $this->buildImportTriggerUrl();
-            $assign['configGroups'] = $configRepository->getGroupedDefinitions(
-                B2BPriceImportConfig::SECTION_IMPORT
+            $assign['configGroups'] = array_merge(
+                $configRepository->getGroupedDefinitions(B2BPriceImportConfig::SECTION_IMPORT),
+                $configRepository->getGroupedDefinitions(B2BPriceImportConfig::SECTION_DISCOUNT_MATRIX)
             );
+            $assign['allGroups'] = $this->getAllCustomerGroups();
             $assign['importCliCommand'] = $this->buildImportCliCommand();
             $assign['importTriggerBaseUrl'] = $importTriggerBaseUrl;
             $assign['importTriggerUrl'] = $this->buildImportTriggerUrl($importApiKey);
@@ -78,13 +80,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
         }
 
         if ($activeSection === 'discount_matrix') {
-            $configRepository = $this->getConfigRepository();
             $assign['matrix'] = $this->buildMatrix();
             $assign['groups'] = $this->getCustomerGroups();
-            $assign['discountMatrixConfigGroups'] = $configRepository->getGroupedDefinitions(
-                B2BPriceImportConfig::SECTION_DISCOUNT_MATRIX
-            );
-            $assign['allGroups'] = $this->getAllCustomerGroups();
         }
 
         if ($activeSection === 'import') {

@@ -76,6 +76,26 @@
             margin: 8px 0 0;
             color: #a94442;
         }
+
+        .b2b-config-checkbox-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 20px;
+            padding: 10px 12px;
+            border: 1px solid #d3d8db;
+            background: #fff;
+        }
+
+        .b2b-config-checkbox-item {
+            min-width: 150px;
+            margin: 0;
+            font-weight: 400;
+            cursor: pointer;
+        }
+
+        .b2b-config-checkbox-item input {
+            margin-right: 7px;
+        }
     </style>
 
     <h2 class="b2b-config-page-title">
@@ -124,7 +144,25 @@
                                 </label>
 
                                 <div class="col-lg-7">
-                                    {if $config.type == 'text'}
+                                    {if $config.type == 'group_multiselect'}
+                                        <div
+                                                class="b2b-config-checkbox-list"
+                                                data-config-key="{$config.key|escape:'html':'UTF-8'}"
+                                                data-config-type="{$config.type|escape:'html':'UTF-8'}"
+                                        >
+                                            {foreach from=$allGroups item=group}
+                                                <label class="b2b-config-checkbox-item">
+                                                    <input
+                                                            type="checkbox"
+                                                            class="b2b-config-checkbox"
+                                                            value="{$group.id_group|intval}"
+                                                            {if in_array($group.id_group, $config.value)}checked="checked"{/if}
+                                                    />
+                                                    {$group.name|escape:'html':'UTF-8'}
+                                                </label>
+                                            {/foreach}
+                                        </div>
+                                    {elseif $config.type == 'text'}
                                         {if !empty($config.readonly)}
                                             <div class="input-group b2b-readonly-config-control">
                                                 <input
