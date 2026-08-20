@@ -63,18 +63,27 @@ class B2bPriceImportImportModuleFrontController extends ModuleFrontController
                 forceLock: false,
                 scanDirectory: $configRepository->getImportScanDir(),
                 maxFileAgeHours: $configRepository->getImportMaxFileAgeHours(),
-                scanLimit: $configRepository->getImportScanLimit()
+                scanLimit: $configRepository->getImportScanLimit(),
+                filename: $this->getRequestedFilename()
             ));
 
             $statusCode = 200;
 
             if (!$summary['success']) {
-                $statusCode = ($summary['error_code'] ?? null) === PriceImportRunService::ERROR_LOCKED
-                    ? 409
-                    : 500;
+                $statusCode = match ($summary['error_code'] ?? null) {
+                    PriceImportRunService::ERROR_LOCKED => 409,
+                    PriceImportRunService::ERROR_INVALID_OPTIONS => 400,
+                    default => 500,
+                };
             }
 
             $this->sendJsonResponse($this->buildPublicSummary($summary), $statusCode);
+        } catch (InvalidArgumentException $exception) {
+            $this->sendJsonResponse([
+                'success' => false,
+                'error_code' => PriceImportRunService::ERROR_INVALID_OPTIONS,
+                'message' => $exception->getMessage(),
+            ], 400);
         } catch (Throwable $exception) {
             $this->sendJsonResponse([
                 'success' => false,
@@ -95,6 +104,23 @@ class B2bPriceImportImportModuleFrontController extends ModuleFrontController
         $requestKey = Tools::getValue('key', '');
 
         return is_string($requestKey) ? trim($requestKey) : '';
+    }
+
+    private function getRequestedFilename(): ?string
+    {
+        $requestedFilename = Tools::getValue('file');
+
+        if ($requestedFilename === false || $requestedFilename === null) {
+            return null;
+        }
+
+        if (!is_string($requestedFilename)) {
+            throw new InvalidArgumentException('File must be a string.');
+        }
+
+        $requestedFilename = trim($requestedFilename);
+
+        return $requestedFilename !== '' ? $requestedFilename : null;
     }
 
     private function buildPublicSummary(array $summary): array
@@ -122,6 +148,7 @@ class B2bPriceImportImportModuleFrontController extends ModuleFrontController
             'error_code' => $summary['error_code'] ?? null,
             'import_id' => $summary['import_id'] ?? null,
             'type' => $summary['type'] ?? null,
+            'file' => $summary['file'] ?? null,
             'scan' => $scanSummary,
             'parse' => $summary['parse'] ?? null,
             'process' => $summary['process'] ?? null,

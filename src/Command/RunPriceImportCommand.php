@@ -51,6 +51,7 @@ final class RunPriceImportCommand extends Command
         $this
             ->setDescription('Run B2B price import from CLI.')
             ->addOption('import-id', null, InputOption::VALUE_REQUIRED, 'Import ID to run. If omitted, the command scans the filesystem inbox first.')
+            ->addOption('file', null, InputOption::VALUE_REQUIRED, 'Optional CSV filename from the import scan directory, including extension.')
             ->addOption('type', null, InputOption::VALUE_REQUIRED, 'Import stage: parse, process or all. Overrides module configuration.')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Maximum rows to process per processor batch. Overrides module configuration.')
             ->addOption('time-limit', null, InputOption::VALUE_REQUIRED, 'Maximum command runtime in seconds. Overrides module configuration.')
@@ -69,6 +70,7 @@ final class RunPriceImportCommand extends Command
             'error_code' => null,
             'import_id' => null,
             'type' => null,
+            'file' => null,
             'scan' => null,
             'parse' => null,
             'process' => [
@@ -124,6 +126,7 @@ final class RunPriceImportCommand extends Command
                 50
             );
             $rawImportId = (int) $input->getOption('import-id');
+            $requestedFilename = $this->resolveString($input, 'file', '');
             $runner = $this->runner ?: new PriceImportRunService(
                 $this->repository,
                 $this->parser,
@@ -141,7 +144,8 @@ final class RunPriceImportCommand extends Command
                 forceLock: $force,
                 scanDirectory: $scanDirectory,
                 maxFileAgeHours: $maxFileAgeHours,
-                scanLimit: $scanLimit
+                scanLimit: $scanLimit,
+                filename: $requestedFilename !== '' ? $requestedFilename : null
             ));
 
             $this->writeSummary($output, $summary, $format);
@@ -231,6 +235,9 @@ final class RunPriceImportCommand extends Command
         $output->writeln('Status: ' . ($summary['success'] ? 'success' : 'failed'));
         $output->writeln('Import ID: ' . ($summary['import_id'] ?? '-'));
         $output->writeln('Type: ' . ($summary['type'] ?? '-'));
+        $output->writeln(
+            'File: ' . ($summary['file'] ?? ($summary['success'] ? 'automatic scan' : '-'))
+        );
 
         if (is_array($summary['scan'])) {
             $output->writeln('Scan created: ' . count($summary['scan']['created'] ?? []));

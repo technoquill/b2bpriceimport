@@ -7,6 +7,7 @@ namespace B2B\PriceImport\Service;
 use B2B\PriceImport\DTO\ImportCreateData;
 use B2B\PriceImport\Repository\ImportRepository;
 use DirectoryIterator;
+use InvalidArgumentException;
 use RuntimeException;
 use SplFileInfo;
 
@@ -16,12 +17,18 @@ final class ImportFileScannerService
     {
     }
 
-    public function scanAndCreateImports(string $directory, int $maxFileAgeHours = 24, int $limit = 1): array
+    public function scanAndCreateImports(
+        string $directory,
+        int $maxFileAgeHours = 24,
+        int $limit = 1,
+        ?string $requestedFilename = null
+    ): array
     {
         $repository = $this->repository ?: new ImportRepository();
         $directory = rtrim(trim($directory), DIRECTORY_SEPARATOR);
         $maxFileAgeHours = max(1, $maxFileAgeHours);
         $limit = max(1, $limit);
+        $requestedFilename = self::normalizeRequestedFilename($requestedFilename);
 
         if ($directory === '') {
             throw new RuntimeException('Scan directory is required.');
@@ -41,10 +48,22 @@ final class ImportFileScannerService
         $cutoffTimestamp = time() - ($maxFileAgeHours * 3600);
         $created = [];
         $skipped = [];
+        $requestedFileFound = false;
 
         foreach (new DirectoryIterator($realDirectory) as $file) {
+            if (
+                $requestedFilename !== null
+                && $file->getFilename() !== $requestedFilename
+            ) {
+                continue;
+            }
+
             if (!$file instanceof SplFileInfo || !$file->isFile()) {
                 continue;
+            }
+
+            if ($requestedFilename !== null) {
+                $requestedFileFound = true;
             }
 
             if (strtolower($file->getExtension()) !== 'csv') {
@@ -121,9 +140,36 @@ final class ImportFileScannerService
             }
         }
 
+        if ($requestedFilename !== null && !$requestedFileFound) {
+            throw new RuntimeException('Requested CSV file was not found: ' . $requestedFilename);
+        }
+
         return [
             'created' => $created,
             'skipped' => $skipped,
         ];
+    }
+
+    public static function normalizeRequestedFilename(?string $requestedFilename): ?string
+    {
+        if ($requestedFilename === null || trim($requestedFilename) === '') {
+            return null;
+        }
+
+        $requestedFilename = trim($requestedFilename);
+
+        if (
+            strlen($requestedFilename) > 255
+            || preg_match('/[\/\\\\\x00-\x1F\x7F]/', $requestedFilename) === 1
+            || in_array($requestedFilename, ['.', '..'], true)
+            || trim((string) pathinfo($requestedFilename, PATHINFO_FILENAME)) === ''
+            || strtolower((string) pathinfo($requestedFilename, PATHINFO_EXTENSION)) !== 'csv'
+        ) {
+            throw new InvalidArgumentException(
+                'File must be a CSV filename with extension and without a directory path.'
+            );
+        }
+
+        return $requestedFilename;
     }
 }

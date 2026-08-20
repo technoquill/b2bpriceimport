@@ -262,7 +262,7 @@
                                         </span>
                                     </div>
                                     <p class="help-block">
-                                        {l s='A GET or POST request to this URL scans the import directory and starts processing. The URL contains the secret key; keep it private.' mod='b2bpriceimport'}
+                                        {l s='A GET or POST request to this URL scans the import directory and starts processing. To select one file, append &amp;file=prices.csv. The URL contains the secret key; keep it private.' mod='b2bpriceimport'}
                                     </p>
                                     <span class="b2b-config-status"></span>
                                 </div>
@@ -294,7 +294,7 @@
                                         </span>
                                     </div>
                                     <p class="help-block">
-                                        {l s='The command reads all import parameters from the module settings above.' mod='b2bpriceimport'}
+                                        {l s='The command reads all import parameters from the module settings above. To select one file, append --file=prices.csv.' mod='b2bpriceimport'}
                                     </p>
                                     <span class="b2b-config-status"></span>
                                 </div>
