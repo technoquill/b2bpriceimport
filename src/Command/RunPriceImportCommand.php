@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace B2B\PriceImport\Command;
 
 use B2B\PriceImport\Config\B2BPriceImportConfig;
+use B2B\PriceImport\DTO\ImportRunOptions;
 use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
 use B2B\PriceImport\Repository\ImportRepository;
 use B2B\PriceImport\Service\ImportFileScannerService;
 use B2B\PriceImport\Service\ImportLockService;
+use B2B\PriceImport\Service\PriceImportRunService;
 use B2B\PriceImport\Service\PriceImportParser;
 use B2B\PriceImport\Service\PriceImportProcessor;
 use InvalidArgumentException;
-use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -39,7 +40,8 @@ final class RunPriceImportCommand extends Command
         private readonly ?PriceImportProcessor $processor = null,
         private readonly ?ImportLockService $lockService = null,
         private readonly ?ImportFileScannerService $scanner = null,
-        private readonly ?B2BPriceImportConfigRepository $configRepository = null
+        private readonly ?B2BPriceImportConfigRepository $configRepository = null,
+        private readonly ?PriceImportRunService $runner = null
     ) {
         parent::__construct();
     }
@@ -62,9 +64,9 @@ final class RunPriceImportCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $startedAt = time();
         $summary = [
             'success' => false,
+            'error_code' => null,
             'import_id' => null,
             'type' => null,
             'scan' => null,
@@ -78,7 +80,6 @@ final class RunPriceImportCommand extends Command
         ];
 
         try {
-            $repository = $this->repository ?: new ImportRepository();
             $type = $this->resolveType($input);
             $limit = $this->resolvePositiveInt(
                 $input,
@@ -103,52 +104,51 @@ final class RunPriceImportCommand extends Command
             );
             $format = $this->resolveFormat($input);
             $force = (bool) $input->getOption('force');
+            $scanDirectory = $this->resolveString(
+                $input,
+                'scan-dir',
+                $this->getConfigRepository()->getImportScanDir()
+            );
+            $maxFileAgeHours = $this->resolvePositiveInt(
+                $input,
+                'max-file-age-hours',
+                $this->getConfigRepository()->getImportMaxFileAgeHours(),
+                1,
+                168
+            );
+            $scanLimit = $this->resolvePositiveInt(
+                $input,
+                'scan-limit',
+                $this->getConfigRepository()->getImportScanLimit(),
+                1,
+                50
+            );
+            $rawImportId = (int) $input->getOption('import-id');
+            $runner = $this->runner ?: new PriceImportRunService(
+                $this->repository,
+                $this->parser,
+                $this->processor,
+                $this->lockService,
+                $this->scanner
+            );
 
-            $idImport = $this->resolveImportIdOrScan($input, $repository, $summary);
-            if ($idImport === null) {
-                $summary['success'] = true;
-                $summary['message'] = 'No eligible CSV file found for import.';
-                $this->writeSummary($output, $summary, $format);
-
-                return self::EXIT_SUCCESS;
-            }
-
-            $summary['import_id'] = $idImport;
-            $summary['type'] = $type;
-
-            $lockName = 'b2b_price_import_' . $idImport;
-            $lockService = $this->lockService ?: new ImportLockService();
-
-            if (!$lockService->acquire($lockName, $lockTtl, $force)) {
-                throw new RuntimeException('Import is locked by another process.');
-            }
-
-            try {
-                if ($type === self::TYPE_PARSE || $type === self::TYPE_ALL) {
-                    $summary['parse'] = ($this->parser ?: new PriceImportParser())->parse($idImport);
-                }
-
-                if ($type === self::TYPE_PROCESS || $type === self::TYPE_ALL) {
-                    do {
-                        $result = ($this->processor ?: new PriceImportProcessor())->process($idImport, $limit);
-                        $summary['process']['processed'] += (int) ($result['processed'] ?? 0);
-                        $summary['process']['failed'] += (int) ($result['failed'] ?? 0);
-                        $summary['process']['batches']++;
-
-                        $hasMoreWork = ((int) ($result['processed'] ?? 0) + (int) ($result['failed'] ?? 0)) >= $limit;
-                    } while ($hasMoreWork && (time() - $startedAt) < $timeLimit);
-                }
-            } finally {
-                $lockService->release($lockName);
-            }
-
-            $summary['success'] = true;
-            $summary['message'] = 'Import command finished.';
+            $summary = $runner->run(new ImportRunOptions(
+                importId: $rawImportId > 0 ? $rawImportId : null,
+                type: $type,
+                batchLimit: $limit,
+                timeLimit: $timeLimit,
+                lockTtl: $lockTtl,
+                forceLock: $force,
+                scanDirectory: $scanDirectory,
+                maxFileAgeHours: $maxFileAgeHours,
+                scanLimit: $scanLimit
+            ));
 
             $this->writeSummary($output, $summary, $format);
 
-            return self::EXIT_SUCCESS;
+            return $summary['success'] ? self::EXIT_SUCCESS : self::EXIT_FAILURE;
         } catch (Throwable $exception) {
+            $summary['error_code'] = PriceImportRunService::ERROR_FAILED;
             $summary['message'] = $exception->getMessage();
 
             $format = self::FORMAT_TEXT;
@@ -161,49 +161,6 @@ final class RunPriceImportCommand extends Command
 
             return self::EXIT_FAILURE;
         }
-    }
-
-    private function resolveImportIdOrScan(InputInterface $input, ImportRepository $repository, array &$summary): ?int
-    {
-        $idImport = (int) $input->getOption('import-id');
-
-        if ($idImport > 0) {
-            if ($repository->find($idImport) === null) {
-                throw new RuntimeException('Import not found.');
-            }
-
-            return $idImport;
-        }
-
-        $scanDirectory = $this->resolveString($input, 'scan-dir', $this->getConfigRepository()->getImportScanDir());
-        $maxFileAgeHours = $this->resolvePositiveInt(
-            $input,
-            'max-file-age-hours',
-            $this->getConfigRepository()->getImportMaxFileAgeHours(),
-            1,
-            168
-        );
-        $scanLimit = $this->resolvePositiveInt(
-            $input,
-            'scan-limit',
-            $this->getConfigRepository()->getImportScanLimit(),
-            1,
-            50
-        );
-
-        $scan = ($this->scanner ?: new ImportFileScannerService($repository))->scanAndCreateImports(
-            $scanDirectory,
-            $maxFileAgeHours,
-            $scanLimit
-        );
-
-        $summary['scan'] = $scan;
-
-        if (empty($scan['created'][0]['id_import'])) {
-            return null;
-        }
-
-        return (int) $scan['created'][0]['id_import'];
     }
 
     private function resolveType(InputInterface $input): string

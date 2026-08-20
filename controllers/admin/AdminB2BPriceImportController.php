@@ -9,11 +9,11 @@ if (file_exists(_PS_MODULE_DIR_ . 'b2bpriceimport/vendor/autoload.php')) {
 }
 
 use B2B\PriceImport\Config\B2BPriceImportConfig;
+use B2B\PriceImport\DTO\ImportRunOptions;
 use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
 use B2B\PriceImport\Repository\ImportRepository;
 use B2B\PriceImport\Service\ImportFileStorageService;
-use B2B\PriceImport\Service\PriceImportParser;
-use B2B\PriceImport\Service\PriceImportProcessor;
+use B2B\PriceImport\Service\PriceImportRunService;
 
 class AdminB2BPriceImportController extends ModuleAdminController
 {
@@ -66,10 +66,15 @@ class AdminB2BPriceImportController extends ModuleAdminController
 
         if ($activeSection === 'config') {
             $configRepository = $this->getConfigRepository();
+            $importApiKey = $configRepository->getImportApiKey();
+            $importTriggerBaseUrl = $this->buildImportTriggerUrl();
             $assign['configGroups'] = $configRepository->getGroupedDefinitions(
                 B2BPriceImportConfig::SECTION_IMPORT
             );
             $assign['importCliCommand'] = $this->buildImportCliCommand();
+            $assign['importTriggerBaseUrl'] = $importTriggerBaseUrl;
+            $assign['importTriggerUrl'] = $this->buildImportTriggerUrl($importApiKey);
+            $assign['importTriggerHasKey'] = $importApiKey !== '';
         }
 
         if ($activeSection === 'discount_matrix') {
@@ -571,6 +576,18 @@ class AdminB2BPriceImportController extends ModuleAdminController
         );
     }
 
+    private function buildImportTriggerUrl(string $accessKey = ''): string
+    {
+        $parameters = $accessKey !== '' ? ['key' => $accessKey] : [];
+
+        return $this->context->link->getModuleLink(
+            'b2bpriceimport',
+            'import',
+            $parameters,
+            true
+        );
+    }
+
     private function resolveCliPhpBinary(): string
     {
         $runtimeBinary = trim((string) PHP_BINARY);
@@ -603,26 +620,28 @@ class AdminB2BPriceImportController extends ModuleAdminController
         ignore_user_abort(true);
         @set_time_limit(0);
 
-        $parseResult = (new PriceImportParser())->parse($idImport);
-        $batchLimit = max(1, $this->getConfigRepository()->getImportBatchLimit());
-        $processor = new PriceImportProcessor();
-        $processResult = [
-            'processed' => 0,
-            'failed' => 0,
-            'batches' => 0,
-        ];
+        $configRepository = $this->getConfigRepository();
+        $summary = (new PriceImportRunService())->run(new ImportRunOptions(
+            importId: $idImport,
+            type: 'all',
+            batchLimit: $configRepository->getImportBatchLimit(),
+            timeLimit: null,
+            lockTtl: $configRepository->getImportLockTtl(),
+            forceLock: false,
+            scanDirectory: $configRepository->getImportScanDir(),
+            maxFileAgeHours: $configRepository->getImportMaxFileAgeHours(),
+            scanLimit: $configRepository->getImportScanLimit()
+        ));
 
-        do {
-            $batchResult = $processor->process($idImport, $batchLimit);
-            $handledRows = (int) ($batchResult['processed'] ?? 0)
-                + (int) ($batchResult['failed'] ?? 0);
+        if (!$summary['success']) {
+            throw new RuntimeException((string) ($summary['message'] ?? 'Import failed.'));
+        }
 
-            $processResult['processed'] += (int) ($batchResult['processed'] ?? 0);
-            $processResult['failed'] += (int) ($batchResult['failed'] ?? 0);
-            $processResult['batches']++;
-        } while ($handledRows >= $batchLimit);
+        $parseResult = is_array($summary['parse']) ? $summary['parse'] : [];
+        $processResult = is_array($summary['process']) ? $summary['process'] : [];
 
-        $failedRows = (int) ($parseResult['failed'] ?? 0) + $processResult['failed'];
+        $failedRows = (int) ($parseResult['failed'] ?? 0)
+            + (int) ($processResult['failed'] ?? 0);
 
         if ($failedRows > 0) {
             $this->getImportRepository()->setStatus(
