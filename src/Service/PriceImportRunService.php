@@ -13,6 +13,7 @@ use Throwable;
 final class PriceImportRunService
 {
     public const ERROR_LOCKED = 'IMPORT_LOCKED';
+    public const ERROR_INVALID_OPTIONS = 'INVALID_OPTIONS';
     public const ERROR_FAILED = 'IMPORT_FAILED';
 
     private const TYPE_PARSE = 'parse';
@@ -36,7 +37,21 @@ final class PriceImportRunService
         $lockAcquired = false;
 
         try {
+            $requestedFilename = ImportFileScannerService::normalizeRequestedFilename(
+                $options->filename
+            );
             $this->validateOptions($options);
+            $summary['file'] = $requestedFilename;
+
+            if (
+                $options->importId !== null
+                && $options->importId > 0
+                && $requestedFilename !== null
+            ) {
+                throw new InvalidArgumentException(
+                    'File cannot be used together with an import ID.'
+                );
+            }
 
             $lockAcquired = $lockService->acquire(
                 self::RUN_LOCK_NAME,
@@ -52,7 +67,12 @@ final class PriceImportRunService
             }
 
             $repository = $this->repository ?: new ImportRepository();
-            $idImport = $this->resolveImportIdOrScan($options, $repository, $summary);
+            $idImport = $this->resolveImportIdOrScan(
+                $options,
+                $requestedFilename,
+                $repository,
+                $summary
+            );
 
             if ($idImport === null) {
                 $summary['success'] = true;
@@ -91,6 +111,9 @@ final class PriceImportRunService
 
             $summary['success'] = true;
             $summary['message'] = 'Import command finished.';
+        } catch (InvalidArgumentException $exception) {
+            $summary['error_code'] = self::ERROR_INVALID_OPTIONS;
+            $summary['message'] = $exception->getMessage();
         } catch (Throwable $exception) {
             $summary['error_code'] = self::ERROR_FAILED;
             $summary['message'] = $exception->getMessage();
@@ -105,6 +128,7 @@ final class PriceImportRunService
 
     private function resolveImportIdOrScan(
         ImportRunOptions $options,
+        ?string $requestedFilename,
         ImportRepository $repository,
         array &$summary
     ): ?int {
@@ -119,7 +143,8 @@ final class PriceImportRunService
         $scan = ($this->scanner ?: new ImportFileScannerService($repository))->scanAndCreateImports(
             $options->scanDirectory,
             $options->maxFileAgeHours,
-            $options->scanLimit
+            $options->scanLimit,
+            $requestedFilename
         );
 
         $summary['scan'] = $scan;
@@ -172,6 +197,7 @@ final class PriceImportRunService
             'error_code' => null,
             'import_id' => null,
             'type' => null,
+            'file' => null,
             'scan' => null,
             'parse' => null,
             'process' => [

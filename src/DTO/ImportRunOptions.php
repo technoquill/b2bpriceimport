@@ -15,7 +15,8 @@ final class ImportRunOptions
         public readonly bool $forceLock,
         public readonly string $scanDirectory,
         public readonly int $maxFileAgeHours,
-        public readonly int $scanLimit
+        public readonly int $scanLimit,
+        public readonly ?string $filename = null
     ) {
     }
 }
