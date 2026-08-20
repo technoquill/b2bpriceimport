@@ -73,13 +73,12 @@
                     {/if}
                 </p>
             </div>
-        </div>
 
-        <div id="b2b-stored-files-section" class="form-group">
-            <label class="control-label col-lg-3">
-                {l s='Stored CSV files' mod='b2bpriceimport'}
-            </label>
-            <div class="col-lg-9">
+            <div id="b2b-stored-files-section" class="col-lg-9 col-lg-offset-3">
+                <h4>
+                    <i class="icon-folder-open"></i>
+                    {l s='Stored CSV files' mod='b2bpriceimport'}
+                </h4>
                 <div id="b2b-stored-files-message"></div>
 
                 <div id="b2b-stored-files-empty"
