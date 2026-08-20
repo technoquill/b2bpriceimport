@@ -234,6 +234,43 @@
                             </div>
                         {/foreach}
 
+                        {if !empty($configGroup.show_import_trigger_url) && !empty($importTriggerBaseUrl)}
+                            <div class="form-group b2b-config-row">
+                                <label class="control-label col-lg-3">
+                                    {l s='Import trigger URL' mod='b2bpriceimport'}
+                                </label>
+
+                                <div class="col-lg-7">
+                                    <div class="input-group b2b-import-trigger-url-control">
+                                        <input
+                                                type="text"
+                                                class="form-control b2b-import-trigger-url-field"
+                                                value="{$importTriggerUrl|escape:'html':'UTF-8'}"
+                                                data-base-url="{$importTriggerBaseUrl|escape:'html':'UTF-8'}"
+                                                readonly="readonly"
+                                                spellcheck="false"
+                                        />
+                                        <span class="input-group-btn">
+                                            <button
+                                                    type="button"
+                                                    class="btn btn-default b2b-copy-import-trigger-url"
+                                                    {if empty($importTriggerHasKey)}disabled="disabled"{/if}
+                                            >
+                                                <i class="icon-copy"></i>
+                                                {l s='Copy URL' mod='b2bpriceimport'}
+                                            </button>
+                                        </span>
+                                    </div>
+                                    <p class="help-block">
+                                        {l s='A GET or POST request to this URL scans the import directory and starts processing. The URL contains the secret key; keep it private.' mod='b2bpriceimport'}
+                                    </p>
+                                    <span class="b2b-config-status"></span>
+                                </div>
+
+                                <div class="clearfix"></div>
+                            </div>
+                        {/if}
+
                         {if !empty($configGroup.show_cli_command) && !empty($importCliCommand)}
                             <div class="form-group b2b-config-row">
                                 <label class="control-label col-lg-3">
@@ -276,6 +313,21 @@
     var b2bPriceImportAjaxUrl = '{$ajaxUrl|escape:'javascript':'UTF-8'}';
 
     $(document).ready(function () {
+        function updateImportTriggerUrl(accessKey) {
+            var $field = $('.b2b-import-trigger-url-field');
+
+            if (!$field.length) {
+                return;
+            }
+
+            var baseUrl = String($field.data('base-url') || '');
+            var hasKey = Boolean(accessKey);
+            var separator = baseUrl.indexOf('?') === -1 ? '?' : '&';
+
+            $field.val(hasKey ? baseUrl + separator + 'key=' + encodeURIComponent(accessKey) : baseUrl);
+            $('.b2b-copy-import-trigger-url').prop('disabled', !hasKey);
+        }
+
         function getCheckedConfigValues($container) {
             var values = [];
 
@@ -307,6 +359,10 @@
                 },
                 success: function (response) {
                     if (response && response.success) {
+                        if ($container.hasClass('b2b-secret-field')) {
+                            updateImportTriggerUrl(response.value || value);
+                        }
+
                         $status
                             .removeClass('text-warning text-danger')
                             .addClass('text-success')
@@ -414,6 +470,17 @@
             );
         });
 
+        $('.b2b-copy-import-trigger-url').on('click', function () {
+            var $control = $(this).closest('.b2b-import-trigger-url-control');
+            var url = $control.find('.b2b-import-trigger-url-field').val();
+
+            copyText(
+                url,
+                function () { setConfigStatus($control, 'text-success', 'Import URL copied.'); },
+                function () { setConfigStatus($control, 'text-danger', 'Cannot copy the import URL.'); }
+            );
+        });
+
         $('.b2b-copy-config-value').on('click', function () {
             var $control = $(this).closest('.b2b-readonly-config-control');
             var value = $control.find('.b2b-readonly-config-field').val();
@@ -462,6 +529,7 @@
                 success: function (response) {
                     if (response && response.success && response.value) {
                         $field.val(response.value);
+                        updateImportTriggerUrl(response.value);
                         $confirmation.show();
                         $confirmationCheckbox.prop('checked', false);
                         setConfigStatus($control, 'text-success', response.message || 'Key generated.');

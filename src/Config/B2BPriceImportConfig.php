@@ -51,6 +51,7 @@ final class B2BPriceImportConfig
                 'description' => 'Access settings used by 1C to start the import.',
                 'icon' => 'icon-exchange',
                 'collapsed' => true,
+                'show_import_trigger_url' => true,
                 'order' => 10,
             ],
             [

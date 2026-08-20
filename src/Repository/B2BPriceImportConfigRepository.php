@@ -7,6 +7,7 @@ namespace B2B\PriceImport\Repository;
 use B2B\PriceImport\Config\B2BPriceImportConfig;
 use Configuration;
 use Exception;
+use Throwable;
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -137,6 +138,29 @@ final class B2BPriceImportConfigRepository
     public function getImportApiKey(): string
     {
         return (string) $this->get(B2BPriceImportConfig::IMPORT_API_KEY);
+    }
+
+    public function isImportApiKeyValid(string $providedKey): bool
+    {
+        try {
+            $configuredKey = $this->getImportApiKey();
+        } catch (Throwable) {
+            return false;
+        }
+
+        $providedKey = trim($providedKey);
+        $configuredLength = strlen($configuredKey);
+
+        if (
+            $configuredLength < 32
+            || $configuredLength > 255
+            || $providedKey === ''
+            || strlen($providedKey) > 255
+        ) {
+            return false;
+        }
+
+        return hash_equals($configuredKey, $providedKey);
     }
 
     /**
