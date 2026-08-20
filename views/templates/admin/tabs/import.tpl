@@ -75,12 +75,12 @@
             </div>
         </div>
 
-        <div id="b2b-stored-files-section" class="form-group hidden">
-            <label class="control-label col-lg-3">
+        <div id="b2b-stored-files-section" class="b2b-stored-files-section">
+            <h4>
+                <i class="icon-folder-open"></i>
                 {l s='Stored CSV files' mod='b2bpriceimport'}
-            </label>
-            <div class="col-lg-9">
-                <div id="b2b-stored-files-message"></div>
+            </h4>
+            <div id="b2b-stored-files-message"></div>
 
                 <div id="b2b-stored-files-empty"
                      class="alert alert-warning{if !empty($existingImportFiles)} hidden{/if}">
@@ -143,7 +143,6 @@
                         </tbody>
                     </table>
                 </div>
-            </div>
         </div>
 
         <div class="panel-footer">
@@ -362,7 +361,6 @@
         var uploadSourceRadio = document.getElementById('b2b-source-upload');
         var existingSourceRadio = document.getElementById('b2b-source-existing');
         var existingFileHelp = document.getElementById('b2b-existing-file-help');
-        var storedFilesSection = document.getElementById('b2b-stored-files-section');
         var storedFilesMessage = document.getElementById('b2b-stored-files-message');
         var storedFilesEmpty = document.getElementById('b2b-stored-files-empty');
         var storedFilesTableWrapper = document.getElementById('b2b-stored-files-table-wrapper');
@@ -637,7 +635,6 @@
 
             uploadFileGroup.classList.toggle('hidden', useExistingFile);
             existingFileGroup.classList.toggle('hidden', !useExistingFile);
-            storedFilesSection.classList.toggle('hidden', !useExistingFile);
             uploadFile.disabled = useExistingFile;
             uploadFile.required = !useExistingFile;
             existingImport.disabled = !useExistingFile;
