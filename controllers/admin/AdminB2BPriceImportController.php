@@ -68,12 +68,14 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $configRepository = $this->getConfigRepository();
             $importApiKey = $configRepository->getImportApiKey();
             $importTriggerBaseUrl = $this->buildImportTriggerUrl();
+            $importCliCommand = $this->buildImportCliCommand();
             $assign['configGroups'] = array_merge(
                 $configRepository->getGroupedDefinitions(B2BPriceImportConfig::SECTION_IMPORT),
                 $configRepository->getGroupedDefinitions(B2BPriceImportConfig::SECTION_DISCOUNT_MATRIX)
             );
             $assign['allGroups'] = $this->getAllCustomerGroups();
-            $assign['importCliCommand'] = $this->buildImportCliCommand();
+            $assign['importCliCommand'] = $importCliCommand;
+            $assign['importCliHelpCommand'] = $importCliCommand . ' --help';
             $assign['importTriggerBaseUrl'] = $importTriggerBaseUrl;
             $assign['importTriggerUrl'] = $this->buildImportTriggerUrl($importApiKey);
             $assign['importTriggerHasKey'] = $importApiKey !== '';

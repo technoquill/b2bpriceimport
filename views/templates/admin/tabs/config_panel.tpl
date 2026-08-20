@@ -96,6 +96,38 @@
         .b2b-config-checkbox-item input {
             margin-right: 7px;
         }
+
+        .b2b-cli-options-help {
+            margin: 12px 0 0;
+        }
+
+        .b2b-cli-options-help-title {
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .b2b-cli-options-list {
+            margin: 0 0 13px;
+            padding-left: 20px;
+        }
+
+        .b2b-cli-options-list li {
+            margin-bottom: 5px;
+        }
+
+        .b2b-cli-option {
+            color: #d9534f;
+            font-weight: 600;
+        }
+
+        .b2b-cli-help-command-label {
+            margin: 0 0 6px;
+            font-weight: 600;
+        }
+
+        .b2b-cli-help-syntax {
+            margin: 7px 0 0;
+        }
     </style>
 
     <h2 class="b2b-config-page-title">
@@ -332,8 +364,84 @@
                                         </span>
                                     </div>
                                     <p class="help-block">
-                                        {l s='The command reads all import parameters from the module settings above. To select one file, append --file=prices.csv.' mod='b2bpriceimport'}
+                                        {l s='The command reads its default parameters from the module settings above. Command options override those defaults.' mod='b2bpriceimport'}
                                     </p>
+
+                                    <div class="alert alert-info b2b-cli-options-help">
+                                        <p class="b2b-cli-options-help-title">
+                                            <i class="icon-info-circle"></i>
+                                            {l s='Command options' mod='b2bpriceimport'}
+                                        </p>
+                                        <ul class="b2b-cli-options-list">
+                                            <li>
+                                                <code class="b2b-cli-option">--file=prices.csv</code>
+                                                — {l s='run a specific CSV file already present in the import directory.' mod='b2bpriceimport'}
+                                            </li>
+                                            <li>
+                                                <code class="b2b-cli-option">--import-id=123</code>
+                                                — {l s='run an existing registered import; it cannot be combined with --file.' mod='b2bpriceimport'}
+                                            </li>
+                                            <li>
+                                                <code class="b2b-cli-option">--type=parse|process|all</code>
+                                                — {l s='select the import stage.' mod='b2bpriceimport'}
+                                            </li>
+                                            <li>
+                                                <code class="b2b-cli-option">--limit=500</code>
+                                                — {l s='set the number of rows processed in one batch.' mod='b2bpriceimport'}
+                                            </li>
+                                            <li>
+                                                <code class="b2b-cli-option">--time-limit=55</code>
+                                                — {l s='set the maximum command runtime in seconds.' mod='b2bpriceimport'}
+                                            </li>
+                                            <li>
+                                                <code class="b2b-cli-option">--lock-ttl=120</code>
+                                                — {l s='set the import lock lifetime in seconds.' mod='b2bpriceimport'}
+                                            </li>
+                                            <li>
+                                                <code class="b2b-cli-option">--force</code>
+                                                — {l s='force replacement of the current import lock.' mod='b2bpriceimport'}
+                                            </li>
+                                            <li>
+                                                <code class="b2b-cli-option">--format=text|json</code>
+                                                — {l s='select the terminal output format.' mod='b2bpriceimport'}
+                                            </li>
+                                            <li>
+                                                <code class="b2b-cli-option">--scan-dir=/path/to/imports</code>
+                                                — {l s='temporarily override the import scan directory.' mod='b2bpriceimport'}
+                                            </li>
+                                            <li>
+                                                <code class="b2b-cli-option">--max-file-age-hours=24</code>
+                                                — {l s='set the maximum eligible file age in hours.' mod='b2bpriceimport'}
+                                            </li>
+                                            <li>
+                                                <code class="b2b-cli-option">--scan-limit=1</code>
+                                                — {l s='set the maximum number of new files registered in one run.' mod='b2bpriceimport'}
+                                            </li>
+                                        </ul>
+
+                                        <p class="b2b-cli-help-command-label">
+                                            {l s='Full command reference' mod='b2bpriceimport'}
+                                        </p>
+                                        <div class="input-group b2b-cli-help-command-control">
+                                            <input
+                                                    type="text"
+                                                    class="form-control b2b-cli-help-command-field"
+                                                    value="{$importCliHelpCommand|escape:'html':'UTF-8'}"
+                                                    readonly="readonly"
+                                                    spellcheck="false"
+                                            />
+                                            <span class="input-group-btn">
+                                                <button type="button" class="btn btn-default b2b-copy-cli-help-command">
+                                                    <i class="icon-copy"></i>
+                                                    {l s='Copy help command' mod='b2bpriceimport'}
+                                                </button>
+                                            </span>
+                                        </div>
+                                        <p class="b2b-cli-help-syntax">
+                                            {l s='Standard Symfony syntax:' mod='b2bpriceimport'}
+                                            <code>php bin/console b2b:price-import:run --help</code>
+                                        </p>
+                                    </div>
                                     <span class="b2b-config-status"></span>
                                 </div>
 
@@ -505,6 +613,17 @@
                 command,
                 function () { setConfigStatus($control, 'text-success', 'Command copied.'); },
                 function () { setConfigStatus($control, 'text-danger', 'Cannot copy the command.'); }
+            );
+        });
+
+        $('.b2b-copy-cli-help-command').on('click', function () {
+            var $control = $(this).closest('.b2b-cli-help-command-control');
+            var command = $control.find('.b2b-cli-help-command-field').val();
+
+            copyText(
+                command,
+                function () { setConfigStatus($control, 'text-success', 'Help command copied.'); },
+                function () { setConfigStatus($control, 'text-danger', 'Cannot copy the help command.'); }
             );
         });
 
