@@ -25,6 +25,7 @@
                 <div class="radio">
                     <label>
                         <input type="radio"
+                               id="b2b-source-existing"
                                name="import_source"
                                value="existing"
                                {if empty($existingImportFiles)}disabled{/if}>
@@ -64,7 +65,7 @@
                         </option>
                     {/foreach}
                 </select>
-                <p class="help-block">
+                <p id="b2b-existing-file-help" class="help-block">
                     {if empty($existingImportFiles)}
                         {l s='No stored CSV files are available.' mod='b2bpriceimport'}
                     {else}
@@ -77,7 +78,7 @@
         <div class="panel-footer">
             <button id="b2b-import-submit" type="submit" class="btn btn-primary">
                 <i class="process-icon-upload"></i>
-                <span id="b2b-import-submit-label">{l s='Upload and run import' mod='b2bpriceimport'}</span>
+                <span id="b2b-import-submit-label">{l s='Upload file' mod='b2bpriceimport'}</span>
             </button>
         </div>
     </form>
@@ -154,16 +155,52 @@
      aria-hidden="true">
     <div class="b2b-import-processing-dialog" role="status" aria-live="assertive">
         <div class="b2b-import-processing-spinner" aria-hidden="true"></div>
-        <h3>{l s='Import in progress' mod='b2bpriceimport'}</h3>
+        <h3 id="b2b-import-processing-title">{l s='Operation in progress' mod='b2bpriceimport'}</h3>
         <p id="b2b-import-processing-message">
-            {l s='The CSV file is being processed. This may take several minutes.' mod='b2bpriceimport'}
+            {l s='Please wait for the current operation to finish.' mod='b2bpriceimport'}
         </p>
         <div class="progress progress-striped active b2b-import-processing-progress" aria-hidden="true">
             <div class="progress-bar progress-bar-info" style="width: 100%"></div>
         </div>
         <p class="help-block">
-            {l s='Please do not close, reload, or leave this page until the import is complete.' mod='b2bpriceimport'}
+            {l s='Please do not close, reload, or leave this page until the current operation is complete.' mod='b2bpriceimport'}
         </p>
+    </div>
+</div>
+
+<div id="b2b-upload-complete-modal"
+     class="modal fade"
+     tabindex="-1"
+     role="dialog"
+     aria-labelledby="b2b-upload-complete-modal-title"
+     aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 id="b2b-upload-complete-modal-title" class="modal-title">
+                    <i class="icon-check-circle text-success"></i>
+                    {l s='CSV file uploaded' mod='b2bpriceimport'}
+                </h4>
+            </div>
+            <div class="modal-body">
+                <p>
+                    {l s='The file was stored successfully. The import has not been started.' mod='b2bpriceimport'}
+                </p>
+                <p>
+                    <strong id="b2b-upload-complete-filename"></strong>
+                </p>
+                <p>{l s='What would you like to do next?' mod='b2bpriceimport'}</p>
+            </div>
+            <div class="modal-footer">
+                <button id="b2b-continue-without-uploaded-file" type="button" class="btn btn-default">
+                    {l s='Continue without selecting' mod='b2bpriceimport'}
+                </button>
+                <button id="b2b-select-uploaded-file" type="button" class="btn btn-primary">
+                    <i class="icon-check"></i>
+                    {l s='Select uploaded file' mod='b2bpriceimport'}
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -220,20 +257,32 @@
         var existingFileGroup = document.getElementById('b2b-existing-file-group');
         var uploadFile = document.getElementById('b2b-upload-file');
         var existingImport = document.getElementById('b2b-existing-import');
+        var existingSourceRadio = document.getElementById('b2b-source-existing');
+        var existingFileHelp = document.getElementById('b2b-existing-file-help');
         var submitButton = document.getElementById('b2b-import-submit');
         var submitLabel = document.getElementById('b2b-import-submit-label');
-        var uploadLabel = '{l s='Upload and run import' mod='b2bpriceimport' js=1}';
+        var uploadLabel = '{l s='Upload file' mod='b2bpriceimport' js=1}';
         var runExistingLabel = '{l s='Run selected import' mod='b2bpriceimport' js=1}';
         var processingOverlay = document.getElementById('b2b-import-processing-overlay');
+        var processingTitle = document.getElementById('b2b-import-processing-title');
         var processingMessage = document.getElementById('b2b-import-processing-message');
-        var uploadProcessingMessage = '{l s='Uploading and processing the CSV file. This may take several minutes.' mod='b2bpriceimport' js=1}';
+        var uploadProcessingTitle = '{l s='File upload in progress' mod='b2bpriceimport' js=1}';
+        var importProcessingTitle = '{l s='Import in progress' mod='b2bpriceimport' js=1}';
+        var uploadProcessingMessage = '{l s='Uploading the CSV file. The import will not be started.' mod='b2bpriceimport' js=1}';
         var existingProcessingMessage = '{l s='Processing the selected CSV file. This may take several minutes.' mod='b2bpriceimport' js=1}';
+        var notImportedLabel = '{l s='not imported yet' mod='b2bpriceimport' js=1}';
+        var existingFileHelpText = '{l s='The selected stored CSV file will be registered if necessary and then processed.' mod='b2bpriceimport' js=1}';
+        var uploadCompleteModal = document.getElementById('b2b-upload-complete-modal');
+        var uploadCompleteFilename = document.getElementById('b2b-upload-complete-filename');
+        var selectUploadedFileButton = document.getElementById('b2b-select-uploaded-file');
+        var continueWithoutUploadedFileButton = document.getElementById('b2b-continue-without-uploaded-file');
         var deleteModal = document.getElementById('b2b-delete-import-modal');
         var deleteModalFile = document.getElementById('b2b-delete-import-file');
         var deleteFileCheckbox = document.getElementById('b2b-delete-import-file-checkbox');
         var confirmDeleteButton = document.getElementById('b2b-confirm-delete-import');
         var pendingDeleteButton = null;
-        var isImportProcessing = false;
+        var pendingUploadedFile = null;
+        var isOperationProcessing = false;
 
         function showMessage(success, message) {
             var alert = document.createElement('div');
@@ -253,24 +302,68 @@
             });
         }
 
-        function startImportProcessing(message) {
-            isImportProcessing = true;
+        function startProcessing(title, message) {
+            isOperationProcessing = true;
+            processingTitle.textContent = title;
             processingMessage.textContent = message;
             processingOverlay.classList.remove('hidden');
             processingOverlay.setAttribute('aria-hidden', 'false');
             document.body.classList.add('b2b-import-processing');
         }
 
-        function stopImportProcessing() {
-            isImportProcessing = false;
+        function stopProcessing() {
+            isOperationProcessing = false;
             processingOverlay.classList.add('hidden');
             processingOverlay.setAttribute('aria-hidden', 'true');
             document.body.classList.remove('b2b-import-processing');
         }
 
         function reloadAfterImport() {
-            isImportProcessing = false;
+            isOperationProcessing = false;
             window.location.reload();
+        }
+
+        function findStoredFileOption(storedFilename) {
+            var index;
+
+            for (index = 0; index < existingImport.options.length; index++) {
+                if (existingImport.options[index].value === storedFilename) {
+                    return existingImport.options[index];
+                }
+            }
+
+            return null;
+        }
+
+        function addUploadedFileToSelect(file) {
+            var option = findStoredFileOption(file.stored_filename);
+
+            if (option === null) {
+                option = document.createElement('option');
+                option.value = file.stored_filename;
+                option.textContent = file.display_filename + ' (' + notImportedLabel + ')';
+
+                if (existingImport.options.length > 1) {
+                    existingImport.insertBefore(option, existingImport.options[1]);
+                } else {
+                    existingImport.appendChild(option);
+                }
+            }
+
+            existingSourceRadio.disabled = false;
+            existingFileHelp.textContent = existingFileHelpText;
+
+            return option;
+        }
+
+        function showUploadCompleteChoice(file) {
+            pendingUploadedFile = file;
+            uploadCompleteFilename.textContent = file.display_filename;
+            window.jQuery(uploadCompleteModal).modal({
+                backdrop: 'static',
+                keyboard: false,
+                show: true
+            });
         }
 
         function getSelectedSource() {
@@ -302,10 +395,13 @@
 
             var formData = new FormData(this);
             var useExistingFile = getSelectedSource() === 'existing';
-            var action = useExistingFile ? 'RunStoredImport' : 'CreateImport';
+            var action = useExistingFile ? 'RunStoredImport' : 'UploadImportFile';
 
             submitButton.disabled = true;
-            startImportProcessing(useExistingFile ? existingProcessingMessage : uploadProcessingMessage);
+            startProcessing(
+                useExistingFile ? importProcessingTitle : uploadProcessingTitle,
+                useExistingFile ? existingProcessingMessage : uploadProcessingMessage
+            );
 
             fetch(ajaxUrl + '&ajax=1&action=' + action, {
                 method: 'POST',
@@ -314,20 +410,57 @@
             })
                 .then(handleJsonResponse)
                 .then(function (json) {
-                    showMessage(json.success, json.message);
-                    if (json.success) {
+                    if (!json.success) {
+                        showMessage(false, json.message);
+                        stopProcessing();
+                        submitButton.disabled = false;
+                        return;
+                    }
+
+                    if (useExistingFile) {
+                        showMessage(true, json.message);
                         reloadAfterImport();
                         return;
                     }
 
-                    stopImportProcessing();
+                    if (!json.file || !json.file.stored_filename || !json.file.display_filename) {
+                        throw new Error('The server did not return the uploaded file details.');
+                    }
+
+                    addUploadedFileToSelect(json.file);
+                    stopProcessing();
                     submitButton.disabled = false;
+                    uploadFile.value = '';
+                    showMessage(true, json.message);
+                    showUploadCompleteChoice(json.file);
                 })
                 .catch(function (error) {
                     showMessage(false, error.message);
-                    stopImportProcessing();
+                    stopProcessing();
                     submitButton.disabled = false;
                 });
+        });
+
+        selectUploadedFileButton.addEventListener('click', function () {
+            if (pendingUploadedFile === null) {
+                return;
+            }
+
+            addUploadedFileToSelect(pendingUploadedFile);
+            existingImport.value = pendingUploadedFile.stored_filename;
+            existingSourceRadio.checked = true;
+            updateFileSource();
+            window.jQuery(uploadCompleteModal).modal('hide');
+            existingImport.focus();
+        });
+
+        continueWithoutUploadedFileButton.addEventListener('click', function () {
+            window.jQuery(uploadCompleteModal).modal('hide');
+        });
+
+        window.jQuery(uploadCompleteModal).on('hidden.bs.modal', function () {
+            uploadCompleteFilename.textContent = '';
+            pendingUploadedFile = null;
         });
 
         Array.prototype.forEach.call(document.querySelectorAll('.b2b-run-import'), function (button) {
@@ -337,7 +470,7 @@
                 formData.append('id_import', idImport);
 
                 this.disabled = true;
-                startImportProcessing(existingProcessingMessage);
+                startProcessing(importProcessingTitle, existingProcessingMessage);
 
                 var runButton = this;
 
@@ -355,12 +488,12 @@
                             return;
                         }
 
-                        stopImportProcessing();
+                        stopProcessing();
                         runButton.disabled = false;
                     })
                     .catch(function (error) {
                         showMessage(false, error.message);
-                        stopImportProcessing();
+                        stopProcessing();
                         runButton.disabled = false;
                     });
             });
@@ -423,7 +556,7 @@
         });
 
         window.addEventListener('beforeunload', function (event) {
-            if (!isImportProcessing) {
+            if (!isOperationProcessing) {
                 return;
             }
 

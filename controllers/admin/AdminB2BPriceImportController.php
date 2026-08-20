@@ -282,11 +282,9 @@ class AdminB2BPriceImportController extends ModuleAdminController
         }
     }
 
-    public function ajaxProcessCreateImport()
+    public function ajaxProcessUploadImportFile()
     {
         header('Content-Type: application/json');
-
-        $idImport = 0;
 
         try {
             if (empty($_FILES['import_file'])) {
@@ -296,28 +294,15 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $employeeId = isset($this->context->employee->id) ? (int) $this->context->employee->id : null;
             $createData = (new ImportFileStorageService())->storeUploadedCsv($_FILES['import_file'], $employeeId);
 
-            $repository = $this->getImportRepository();
-            $idImport = $repository->create($createData);
-            $repository->createJob($idImport, 'parse');
-            $repository->createJob($idImport, 'process');
-            $result = $this->runImportToCompletion($idImport);
-
             die(json_encode([
                 'success' => true,
-                'message' => 'CSV file uploaded and import processed.',
-                'id_import' => $idImport,
-                'parse' => $result['parse'],
-                'process' => $result['process'],
+                'message' => 'CSV file uploaded. The import was not started.',
+                'file' => [
+                    'stored_filename' => (string) $createData->storedFilename,
+                    'display_filename' => (string) ($createData->originalFilename ?: $createData->storedFilename),
+                ],
             ]));
         } catch (Throwable $e) {
-            if ($idImport > 0) {
-                try {
-                    $this->getImportRepository()->setStatus($idImport, 'failed', $e->getMessage());
-                } catch (Throwable $innerException) {
-                    // Keep the AJAX response valid even if updating the import status fails.
-                }
-            }
-
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
