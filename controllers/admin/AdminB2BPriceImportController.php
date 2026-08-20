@@ -9,6 +9,7 @@ if (file_exists(_PS_MODULE_DIR_ . 'b2bpriceimport/vendor/autoload.php')) {
 }
 
 use B2B\PriceImport\Config\B2BPriceImportConfig;
+use B2B\PriceImport\Constant\ImportStatus;
 use B2B\PriceImport\DTO\ImportRunOptions;
 use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
 use B2B\PriceImport\Repository\ImportRepository;
@@ -88,8 +89,9 @@ class AdminB2BPriceImportController extends ModuleAdminController
 
         if ($activeSection === 'import') {
             $repository = $this->getImportRepository();
+            $recentImports = $repository->getLastImports(20);
 
-            $assign['imports'] = $repository->getLastImports(20);
+            $assign['imports'] = $this->addImportFileAvailability($recentImports);
             $assign['existingImportFiles'] = $this->getExistingImportFiles(
                 $repository->getLastImports(self::EXISTING_IMPORT_FILE_LIMIT)
             );
@@ -300,6 +302,9 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 'file' => [
                     'stored_filename' => (string) $createData->storedFilename,
                     'display_filename' => (string) ($createData->originalFilename ?: $createData->storedFilename),
+                    'file_size' => (int) ($createData->fileSize ?? 0),
+                    'file_size_display' => $this->formatFileSize((int) ($createData->fileSize ?? 0)),
+                    'modified_at_display' => date('Y-m-d H:i:s'),
                 ],
             ]));
         } catch (Throwable $e) {
@@ -415,7 +420,6 @@ class AdminB2BPriceImportController extends ModuleAdminController
         header('Content-Type: application/json');
 
         $idImport = (int) Tools::getValue('id_import');
-        $deleteFile = (string) Tools::getValue('delete_file', '0') === '1';
 
         try {
             if ($idImport <= 0) {
@@ -429,17 +433,48 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 throw new Exception('Import not found.');
             }
 
-            if ($deleteFile) {
-                (new ImportFileStorageService())->deleteStoredFile($import['file_path'] ?? null);
-            }
-
             $repository->deleteImport($idImport);
 
             die(json_encode([
                 'success' => true,
-                'message' => $deleteFile
-                    ? 'Import and its stored CSV file deleted.'
-                    : 'Import deleted. The stored CSV file was kept.',
+                'message' => 'Import deleted. The stored CSV file was kept.',
+            ]));
+        } catch (Throwable $e) {
+            die(json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]));
+        }
+    }
+
+    public function ajaxProcessDeleteStoredImportFile()
+    {
+        header('Content-Type: application/json');
+
+        $storedFilename = trim((string) Tools::getValue('stored_filename'));
+
+        try {
+            $storage = new ImportFileStorageService();
+            $fileData = $storage->createDataFromStoredCsv($storedFilename, null);
+            $repository = $this->getImportRepository();
+            $import = $repository->findByFilePath((string) $fileData->filePath);
+
+            if (
+                is_array($import)
+                && in_array((string) ($import['status'] ?? ''), ImportStatus::activeStatuses(), true)
+            ) {
+                throw new Exception('The file cannot be deleted while its import is active.');
+            }
+
+            $storage->deleteStoredFile($fileData->filePath);
+
+            die(json_encode([
+                'success' => true,
+                'message' => is_array($import)
+                    ? 'Stored CSV file deleted. Linked import history was kept.'
+                    : 'Stored CSV file deleted.',
+                'stored_filename' => $storedFilename,
+                'id_import' => is_array($import) ? (int) $import['id_b2b_import'] : null,
             ]));
         } catch (Throwable $e) {
             die(json_encode([
@@ -665,10 +700,45 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $file['id_b2b_import'] = is_array($import) ? (int) $import['id_b2b_import'] : null;
             $file['status'] = is_array($import) ? (string) $import['status'] : null;
             $file['date_add'] = is_array($import) ? (string) $import['date_add'] : null;
+            $file['file_size_display'] = $this->formatFileSize((int) ($file['file_size'] ?? 0));
+            $file['modified_at_display'] = date('Y-m-d H:i:s', (int) $file['modified_at']);
+            $file['can_delete'] = !is_array($import)
+                || !in_array((string) $import['status'], ImportStatus::activeStatuses(), true);
         }
         unset($file);
 
         return $files;
+    }
+
+    private function addImportFileAvailability(array $imports): array
+    {
+        foreach ($imports as &$import) {
+            $filePath = trim((string) ($import['file_path'] ?? ''));
+            $import['file_available'] = $filePath !== '' && is_file($filePath) && is_readable($filePath);
+        }
+        unset($import);
+
+        return $imports;
+    }
+
+    private function formatFileSize(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return $bytes . ' B';
+        }
+
+        $units = ['KB', 'MB', 'GB'];
+        $size = $bytes / 1024;
+
+        foreach ($units as $index => $unit) {
+            if ($size < 1024 || $index === count($units) - 1) {
+                return number_format($size, $size >= 10 ? 1 : 2, '.', '') . ' ' . $unit;
+            }
+
+            $size /= 1024;
+        }
+
+        return $bytes . ' B';
     }
 
     private function buildImportItemsPagination(
