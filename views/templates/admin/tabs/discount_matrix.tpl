@@ -85,87 +85,7 @@
             color: #a94442;
         }
 
-        .b2b-matrix-config-panel {
-            margin-bottom: 18px;
-        }
-
-        .b2b-matrix-config-panel .panel-heading {
-            font-weight: 600;
-        }
-
-        .b2b-matrix-group-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px 20px;
-            padding: 10px 12px;
-            border: 1px solid #d3d8db;
-            background: #fff;
-        }
-
-        .b2b-matrix-group-item {
-            min-width: 150px;
-            margin: 0;
-            font-weight: 400;
-            cursor: pointer;
-        }
-
-        .b2b-matrix-group-item input {
-            margin-right: 7px;
-        }
-
-        .b2b-matrix-config-status {
-            display: block;
-            min-height: 16px;
-            margin-top: 5px;
-            font-size: 11px;
-        }
     </style>
-
-    {foreach from=$discountMatrixConfigGroups item=configGroup}
-        <div class="panel panel-default b2b-matrix-config-panel">
-            <div class="panel-heading">
-                <i class="{$configGroup.icon|escape:'html':'UTF-8'}"></i>
-                {$configGroup.label|escape:'html':'UTF-8'}
-            </div>
-            <div class="panel-body">
-                {if !empty($configGroup.description)}
-                    <p>{$configGroup.description|escape:'html':'UTF-8'}</p>
-                {/if}
-
-                {foreach from=$configGroup.definitions item=config}
-                    {if $config.type == 'group_multiselect'}
-                        <div class="form-group">
-                            <label class="control-label">
-                                {$config.label|escape:'html':'UTF-8'}
-                            </label>
-                            <div
-                                    class="b2b-matrix-group-list"
-                                    data-config-key="{$config.key|escape:'html':'UTF-8'}"
-                            >
-                                {foreach from=$allGroups item=group}
-                                    <label class="b2b-matrix-group-item">
-                                        <input
-                                                type="checkbox"
-                                                class="b2b-matrix-group-checkbox"
-                                                value="{$group.id_group|intval}"
-                                                {if in_array($group.id_group, $config.value)}checked="checked"{/if}
-                                        />
-                                        {$group.name|escape:'html':'UTF-8'}
-                                    </label>
-                                {/foreach}
-                            </div>
-                            {if !empty($config.description)}
-                                <p class="help-block">
-                                    {$config.description|escape:'html':'UTF-8'}
-                                </p>
-                            {/if}
-                            <span class="b2b-matrix-config-status"></span>
-                        </div>
-                    {/if}
-                {/foreach}
-            </div>
-        </div>
-    {/foreach}
 
     <form method="post" action="{$currentIndex|escape:'html':'UTF-8'}&token={$token|escape:'html':'UTF-8'}">
         <div class="table-responsive">
@@ -194,65 +114,6 @@
 
     $(document).ready(function () {
         var saveTimers = {};
-        var groupConfigTimer = null;
-
-        function getExcludedGroupValues($container) {
-            var values = [];
-
-            $container.find('.b2b-matrix-group-checkbox:checked').each(function () {
-                values.push($(this).val());
-            });
-
-            return values;
-        }
-
-        function saveExcludedGroups($container) {
-            var $status = $container.closest('.form-group').find('.b2b-matrix-config-status');
-
-            $status
-                .removeClass('text-success text-danger text-warning')
-                .addClass('text-warning')
-                .text('Saving...');
-
-            $container.find('.b2b-matrix-group-checkbox').prop('disabled', true);
-
-            $.ajax({
-                url: b2bDiscountMatrixAjaxUrl,
-                method: 'POST',
-                dataType: 'json',
-                data: {
-                    ajax: 1,
-                    action: 'SaveConfig',
-                    key: $container.data('config-key'),
-                    value: getExcludedGroupValues($container)
-                },
-                success: function (response) {
-                    if (response && response.success) {
-                        $status
-                            .removeClass('text-warning text-danger')
-                            .addClass('text-success')
-                            .text('Saved. Refreshing the matrix...');
-
-                        window.setTimeout(function () {
-                            window.location.reload();
-                        }, 350);
-                    } else {
-                        $container.find('.b2b-matrix-group-checkbox').prop('disabled', false);
-                        $status
-                            .removeClass('text-warning text-success')
-                            .addClass('text-danger')
-                            .text(response && response.message ? response.message : 'Save error');
-                    }
-                },
-                error: function () {
-                    $container.find('.b2b-matrix-group-checkbox').prop('disabled', false);
-                    $status
-                        .removeClass('text-warning text-success')
-                        .addClass('text-danger')
-                        .text('Server error');
-                }
-            });
-        }
 
         function normalizeValue(value) {
             value = $.trim(String(value || ''));
@@ -406,21 +267,6 @@
         });
 
         updateMissingLabels();
-
-        $('.b2b-matrix-group-checkbox').on('change', function () {
-            var $container = $(this).closest('.b2b-matrix-group-list');
-            var $status = $container.closest('.form-group').find('.b2b-matrix-config-status');
-
-            window.clearTimeout(groupConfigTimer);
-            $status
-                .removeClass('text-success text-danger')
-                .addClass('text-warning')
-                .text('Changed');
-
-            groupConfigTimer = window.setTimeout(function () {
-                saveExcludedGroups($container);
-            }, 500);
-        });
 
         $('.b2b-discount-input').on('input', function () {
             var $input = $(this);

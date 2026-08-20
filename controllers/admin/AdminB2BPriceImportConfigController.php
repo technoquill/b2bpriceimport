@@ -31,9 +31,11 @@ class AdminB2BPriceImportConfigController extends ModuleAdminController
         $configRepository = $this->getConfigRepository();
 
         $this->context->smarty->assign([
-            'configGroups' => $configRepository->getGroupedDefinitions(
-                B2BPriceImportConfig::SECTION_IMPORT
+            'configGroups' => array_merge(
+                $configRepository->getGroupedDefinitions(B2BPriceImportConfig::SECTION_IMPORT),
+                $configRepository->getGroupedDefinitions(B2BPriceImportConfig::SECTION_DISCOUNT_MATRIX)
             ),
+            'allGroups' => $this->getAllCustomerGroups(),
             'ajaxUrl' => $this->context->link->getAdminLink('AdminB2BPriceImportConfig', true),
         ]);
 
@@ -80,6 +82,24 @@ class AdminB2BPriceImportConfigController extends ModuleAdminController
     private function getConfigRepository(): B2BPriceImportConfigRepository
     {
         return new B2BPriceImportConfigRepository();
+    }
+
+    private function getAllCustomerGroups(): array
+    {
+        $sql = new DbQuery();
+        $sql->select('g.id_group, gl.name');
+        $sql->from('group', 'g');
+        $sql->innerJoin(
+            'group_lang',
+            'gl',
+            'gl.id_group = g.id_group
+             AND gl.id_lang = ' . (int) $this->context->language->id
+        );
+        $sql->orderBy('g.id_group ASC');
+
+        $rows = Db::getInstance()->executeS($sql);
+
+        return is_array($rows) ? $rows : [];
     }
 
 }

@@ -50,7 +50,7 @@ final class B2BPriceImportConfig
                 'label' => '1C integration',
                 'description' => 'Access settings used by 1C to start the import.',
                 'icon' => 'icon-exchange',
-                'collapsed' => true,
+                'collapsed' => false,
                 'show_import_trigger_url' => true,
                 'order' => 10,
             ],
@@ -60,7 +60,7 @@ final class B2BPriceImportConfig
                 'label' => 'Import processing',
                 'description' => 'Controls how many import rows are processed in one batch.',
                 'icon' => 'icon-tasks',
-                'collapsed' => true,
+                'collapsed' => false,
                 'order' => 20,
             ],
             [
@@ -69,7 +69,7 @@ final class B2BPriceImportConfig
                 'label' => 'Advanced CLI settings',
                 'description' => 'File scanner, runtime, locking, and terminal output defaults.',
                 'icon' => 'icon-terminal',
-                'collapsed' => true,
+                'collapsed' => false,
                 'order' => 30,
             ],
             [
@@ -78,7 +78,7 @@ final class B2BPriceImportConfig
                 'label' => 'System information',
                 'description' => 'Read-only paths and the ready-to-copy terminal command.',
                 'icon' => 'icon-info-circle',
-                'collapsed' => true,
+                'collapsed' => false,
                 'show_cli_command' => true,
                 'order' => 40,
             ],
@@ -89,7 +89,7 @@ final class B2BPriceImportConfig
                 'description' => 'Choose which customer groups are visible in the matrix.',
                 'icon' => 'icon-users',
                 'collapsed' => false,
-                'order' => 10,
+                'order' => 50,
             ],
         ];
     }
