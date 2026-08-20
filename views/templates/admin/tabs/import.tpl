@@ -75,6 +75,77 @@
             </div>
         </div>
 
+        <div id="b2b-stored-files-section" class="form-group hidden">
+            <label class="control-label col-lg-3">
+                {l s='Stored CSV files' mod='b2bpriceimport'}
+            </label>
+            <div class="col-lg-9">
+                <div id="b2b-stored-files-message"></div>
+
+                <div id="b2b-stored-files-empty"
+                     class="alert alert-warning{if !empty($existingImportFiles)} hidden{/if}">
+                    {l s='No stored CSV files are available.' mod='b2bpriceimport'}
+                </div>
+
+                <div id="b2b-stored-files-table-wrapper"
+                     class="table-responsive{if empty($existingImportFiles)} hidden{/if}">
+                    <table id="b2b-stored-files-table" class="table">
+                        <thead>
+                        <tr>
+                            <th>{l s='File' mod='b2bpriceimport'}</th>
+                            <th>{l s='Size' mod='b2bpriceimport'}</th>
+                            <th>{l s='Modified' mod='b2bpriceimport'}</th>
+                            <th>{l s='Linked import' mod='b2bpriceimport'}</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody id="b2b-stored-files-body">
+                        {foreach from=$existingImportFiles item=existingFile}
+                            <tr data-stored-filename="{$existingFile.stored_filename|escape:'html':'UTF-8'}">
+                                <td>
+                                    <strong>{$existingFile.display_filename|escape:'html':'UTF-8'}</strong>
+                                    {if $existingFile.display_filename != $existingFile.stored_filename}
+                                        <br>
+                                        <small class="text-muted">{$existingFile.stored_filename|escape:'html':'UTF-8'}</small>
+                                    {/if}
+                                </td>
+                                <td>{$existingFile.file_size_display|escape:'html':'UTF-8'}</td>
+                                <td>{$existingFile.modified_at_display|escape:'html':'UTF-8'}</td>
+                                <td>
+                                    {if !empty($existingFile.id_b2b_import)}
+                                        <a href="{$ajaxUrl|escape:'html':'UTF-8'}&section=import_detail&id_import={$existingFile.id_b2b_import|intval}">
+                                            #{$existingFile.id_b2b_import|intval}
+                                        </a>
+                                        ({$existingFile.status|escape:'html':'UTF-8'})
+                                    {else}
+                                        <span class="text-muted">{l s='Not imported' mod='b2bpriceimport'}</span>
+                                    {/if}
+                                </td>
+                                <td class="text-right">
+                                    <button type="button"
+                                            class="btn btn-default b2b-select-stored-file"
+                                            data-stored-filename="{$existingFile.stored_filename|escape:'html':'UTF-8'}">
+                                        <i class="icon-check"></i>
+                                        {l s='Select' mod='b2bpriceimport'}
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-danger b2b-delete-stored-file"
+                                            data-stored-filename="{$existingFile.stored_filename|escape:'html':'UTF-8'}"
+                                            data-display-filename="{$existingFile.display_filename|escape:'html':'UTF-8'}"
+                                            data-id-import="{if !empty($existingFile.id_b2b_import)}{$existingFile.id_b2b_import|intval}{/if}"
+                                            {if empty($existingFile.can_delete)}disabled="disabled" title="{l s='The file cannot be deleted while its import is active.' mod='b2bpriceimport'}"{/if}>
+                                        <i class="icon-trash"></i>
+                                        {l s='Delete' mod='b2bpriceimport'}
+                                    </button>
+                                </td>
+                            </tr>
+                        {/foreach}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div class="panel-footer">
             <button id="b2b-import-submit" type="submit" class="btn btn-primary">
                 <i class="process-icon-upload"></i>
@@ -82,77 +153,6 @@
             </button>
         </div>
     </form>
-</div>
-
-<div class="panel" id="b2b-stored-files-panel">
-    <h3>
-        <i class="icon-folder-open"></i>
-        {l s='Stored CSV files' mod='b2bpriceimport'}
-    </h3>
-
-    <div id="b2b-stored-files-message"></div>
-
-    <div id="b2b-stored-files-empty"
-         class="alert alert-warning{if !empty($existingImportFiles)} hidden{/if}">
-        {l s='No stored CSV files are available.' mod='b2bpriceimport'}
-    </div>
-
-    <div id="b2b-stored-files-table-wrapper"
-         class="table-responsive{if empty($existingImportFiles)} hidden{/if}">
-        <table id="b2b-stored-files-table" class="table">
-            <thead>
-            <tr>
-                <th>{l s='File' mod='b2bpriceimport'}</th>
-                <th>{l s='Size' mod='b2bpriceimport'}</th>
-                <th>{l s='Modified' mod='b2bpriceimport'}</th>
-                <th>{l s='Linked import' mod='b2bpriceimport'}</th>
-                <th></th>
-            </tr>
-            </thead>
-            <tbody id="b2b-stored-files-body">
-            {foreach from=$existingImportFiles item=existingFile}
-                <tr data-stored-filename="{$existingFile.stored_filename|escape:'html':'UTF-8'}">
-                    <td>
-                        <strong>{$existingFile.display_filename|escape:'html':'UTF-8'}</strong>
-                        {if $existingFile.display_filename != $existingFile.stored_filename}
-                            <br>
-                            <small class="text-muted">{$existingFile.stored_filename|escape:'html':'UTF-8'}</small>
-                        {/if}
-                    </td>
-                    <td>{$existingFile.file_size_display|escape:'html':'UTF-8'}</td>
-                    <td>{$existingFile.modified_at_display|escape:'html':'UTF-8'}</td>
-                    <td>
-                        {if !empty($existingFile.id_b2b_import)}
-                            <a href="{$ajaxUrl|escape:'html':'UTF-8'}&section=import_detail&id_import={$existingFile.id_b2b_import|intval}">
-                                #{$existingFile.id_b2b_import|intval}
-                            </a>
-                            ({$existingFile.status|escape:'html':'UTF-8'})
-                        {else}
-                            <span class="text-muted">{l s='Not imported' mod='b2bpriceimport'}</span>
-                        {/if}
-                    </td>
-                    <td class="text-right">
-                        <button type="button"
-                                class="btn btn-default b2b-select-stored-file"
-                                data-stored-filename="{$existingFile.stored_filename|escape:'html':'UTF-8'}">
-                            <i class="icon-check"></i>
-                            {l s='Select' mod='b2bpriceimport'}
-                        </button>
-                        <button type="button"
-                                class="btn btn-danger b2b-delete-stored-file"
-                                data-stored-filename="{$existingFile.stored_filename|escape:'html':'UTF-8'}"
-                                data-display-filename="{$existingFile.display_filename|escape:'html':'UTF-8'}"
-                                data-id-import="{if !empty($existingFile.id_b2b_import)}{$existingFile.id_b2b_import|intval}{/if}"
-                                {if empty($existingFile.can_delete)}disabled="disabled" title="{l s='The file cannot be deleted while its import is active.' mod='b2bpriceimport'}"{/if}>
-                            <i class="icon-trash"></i>
-                            {l s='Delete' mod='b2bpriceimport'}
-                        </button>
-                    </td>
-                </tr>
-            {/foreach}
-            </tbody>
-        </table>
-    </div>
 </div>
 
 <div class="panel">
@@ -362,6 +362,7 @@
         var uploadSourceRadio = document.getElementById('b2b-source-upload');
         var existingSourceRadio = document.getElementById('b2b-source-existing');
         var existingFileHelp = document.getElementById('b2b-existing-file-help');
+        var storedFilesSection = document.getElementById('b2b-stored-files-section');
         var storedFilesMessage = document.getElementById('b2b-stored-files-message');
         var storedFilesEmpty = document.getElementById('b2b-stored-files-empty');
         var storedFilesTableWrapper = document.getElementById('b2b-stored-files-table-wrapper');
@@ -636,6 +637,7 @@
 
             uploadFileGroup.classList.toggle('hidden', useExistingFile);
             existingFileGroup.classList.toggle('hidden', !useExistingFile);
+            storedFilesSection.classList.toggle('hidden', !useExistingFile);
             uploadFile.disabled = useExistingFile;
             uploadFile.required = !useExistingFile;
             existingImport.disabled = !useExistingFile;
