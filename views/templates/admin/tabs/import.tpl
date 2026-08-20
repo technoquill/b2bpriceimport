@@ -73,13 +73,14 @@
                     {/if}
                 </p>
             </div>
+        </div>
 
-            <div id="b2b-stored-files-section" class="col-lg-9 col-lg-offset-3">
-                <h4>
-                    <i class="icon-folder-open"></i>
-                    {l s='Stored CSV files' mod='b2bpriceimport'}
-                </h4>
-                <div id="b2b-stored-files-message"></div>
+        <div id="b2b-stored-files-section" class="b2b-stored-files-section">
+            <h4>
+                <i class="icon-folder-open"></i>
+                {l s='Stored CSV files' mod='b2bpriceimport'}
+            </h4>
+            <div id="b2b-stored-files-message"></div>
 
                 <div id="b2b-stored-files-empty"
                      class="alert alert-warning{if !empty($existingImportFiles)} hidden{/if}">
@@ -142,7 +143,6 @@
                         </tbody>
                     </table>
                 </div>
-            </div>
         </div>
 
         <div class="panel-footer">
