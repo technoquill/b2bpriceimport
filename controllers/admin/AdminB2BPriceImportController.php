@@ -68,6 +68,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
         if ($activeSection === 'config') {
             $configRepository = $this->getConfigRepository();
             $importApiKey = $configRepository->getImportApiKey();
+            $importUploadBaseUrl = $this->buildImportUploadUrl();
             $importTriggerBaseUrl = $this->buildImportTriggerUrl();
             $importCliCommand = $this->buildImportCliCommand();
             $assign['configGroups'] = array_merge(
@@ -77,6 +78,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $assign['allGroups'] = $this->getAllCustomerGroups();
             $assign['importCliCommand'] = $importCliCommand;
             $assign['importCliHelpCommand'] = $importCliCommand . ' --help';
+            $assign['importUploadBaseUrl'] = $importUploadBaseUrl;
+            $assign['importUploadUrl'] = $this->buildImportUploadUrl($importApiKey);
             $assign['importTriggerBaseUrl'] = $importTriggerBaseUrl;
             $assign['importTriggerUrl'] = $this->buildImportTriggerUrl($importApiKey);
             $assign['importTriggerHasKey'] = $importApiKey !== '';
@@ -602,6 +605,18 @@ class AdminB2BPriceImportController extends ModuleAdminController
         return $this->context->link->getModuleLink(
             'b2bpriceimport',
             'import',
+            $parameters,
+            true
+        );
+    }
+
+    private function buildImportUploadUrl(string $accessKey = ''): string
+    {
+        $parameters = $accessKey !== '' ? ['key' => $accessKey] : [];
+
+        return $this->context->link->getModuleLink(
+            'b2bpriceimport',
+            'upload',
             $parameters,
             true
         );
