@@ -29,74 +29,52 @@ final class PriceImportProcessor
             throw new RuntimeException('Import not found.');
         }
 
+        $limit = max(1, $limit);
         $repository->setStatus($idImport, ImportStatus::PROCESSING);
 
         $processed = 0;
         $errors = 0;
+        $batches = 0;
 
-        foreach ($repository->getPendingStagingRows($idImport, $limit) as $row) {
-            $idStaging = (int) $row['id_b2b_import_price_staging'];
-            $idItem = (int) $row['id_b2b_import_item'];
-            $idProduct = (int) $row['id_product'];
-            $before = null;
+        while (true) {
+            $rows = $repository->getPendingStagingRows($idImport, $limit);
 
-            try {
-                $priceUah = (float) $row['price_uah'];
-                $active = $row['active'] !== null ? (int) $row['active'] : null;
+            if ($rows === []) {
+                break;
+            }
 
-                if ($detailedProductLogging) {
-                    $before = $this->getProductAuditState($updater, $idProduct);
+            $batches++;
+
+            foreach ($rows as $row) {
+                $idStaging = (int) $row['id_b2b_import_price_staging'];
+                $idItem = (int) $row['id_b2b_import_item'];
+
+                try {
+                    $idProduct = (int) $row['id_product'];
+                    $priceUah = (float) $row['price_uah'];
+                    $active = $row['active'] !== null ? (int) $row['active'] : null;
+
+                    $updater->applyDiscountMatrix($idProduct, $priceUah);
+                    $updater->updateProduct($idProduct, $priceUah, $active);
+
+                    $repository->markRowProcessed($idStaging, $idItem);
+                    $processed++;
+                } catch (Throwable $exception) {
+                    $repository->markRowFailed($idStaging, $idItem, 'PROCESSING_ERROR', $exception->getMessage());
+                    $errors++;
                 }
-
-                $updater->applyDiscountMatrix($idProduct, $priceUah);
-                $updater->updateProduct($idProduct, $priceUah, $active);
-
-                if ($detailedProductLogging) {
-                    $auditLogger->record(
-                        'product.price_updated',
-                        'product',
-                        'success',
-                        'Product prices updated by import.',
-                        (string) $idProduct,
-                        $before,
-                        $this->getProductAuditState($updater, $idProduct),
-                        [
-                            'import_id' => $idImport,
-                            'reference' => (string) ($row['reference'] ?? ''),
-                            'id_import_item' => $idItem,
-                        ]
-                    );
-                }
-
-                $repository->markRowProcessed($idStaging, $idItem);
-                $processed++;
-            } catch (Throwable $exception) {
-                $repository->markRowFailed($idStaging, $idItem, 'PROCESSING_ERROR', $exception->getMessage());
-
-                if ($detailedProductLogging) {
-                    $auditLogger->record(
-                        'product.update_failed',
-                        'product',
-                        'error',
-                        $exception->getMessage(),
-                        $idProduct > 0 ? (string) $idProduct : null,
-                        $before,
-                        null,
-                        [
-                            'import_id' => $idImport,
-                            'reference' => (string) ($row['reference'] ?? ''),
-                            'id_import_item' => $idItem,
-                        ]
-                    );
-                }
-                $errors++;
             }
         }
 
         $repository->refreshStats($idImport);
         $repository->setStatus($idImport, $errors > 0 ? ImportStatus::FAILED : ImportStatus::FINISHED);
 
-        return ['processed' => $processed, 'failed' => $errors];
+        return [
+            'processed' => $processed,
+            'failed' => $errors,
+            'batches' => $batches,
+            'has_more' => false,
+        ];
     }
 
     private function getProductAuditState(ProductPriceUpdater $updater, int $idProduct): ?array
