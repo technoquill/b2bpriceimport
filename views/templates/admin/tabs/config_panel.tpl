@@ -307,6 +307,41 @@
                         {if !empty($configGroup.show_import_trigger_url) && !empty($importTriggerBaseUrl)}
                             <div class="form-group b2b-config-row">
                                 <label class="control-label col-lg-3">
+                                    {l s='CSV upload URL' mod='b2bpriceimport'}
+                                </label>
+
+                                <div class="col-lg-7">
+                                    <div class="input-group b2b-import-upload-url-control">
+                                        <input
+                                                type="text"
+                                                class="form-control b2b-import-api-url-field b2b-import-upload-url-field"
+                                                value="{$importUploadUrl|escape:'html':'UTF-8'}"
+                                                data-base-url="{$importUploadBaseUrl|escape:'html':'UTF-8'}"
+                                                readonly="readonly"
+                                                spellcheck="false"
+                                        />
+                                        <span class="input-group-btn">
+                                            <button
+                                                    type="button"
+                                                    class="btn btn-default b2b-copy-import-api-url b2b-copy-import-upload-url"
+                                                    {if empty($importTriggerHasKey)}disabled="disabled"{/if}
+                                            >
+                                                <i class="icon-copy"></i>
+                                                {l s='Copy URL' mod='b2bpriceimport'}
+                                            </button>
+                                        </span>
+                                    </div>
+                                    <p class="help-block">
+                                        {l s='Postman: use POST, Body -> form-data, add a field named file with type File. The CSV is stored on the server, but the import is not started.' mod='b2bpriceimport'}
+                                    </p>
+                                    <span class="b2b-config-status"></span>
+                                </div>
+
+                                <div class="clearfix"></div>
+                            </div>
+
+                            <div class="form-group b2b-config-row">
+                                <label class="control-label col-lg-3">
                                     {l s='Import trigger URL' mod='b2bpriceimport'}
                                 </label>
 
@@ -314,7 +349,7 @@
                                     <div class="input-group b2b-import-trigger-url-control">
                                         <input
                                                 type="text"
-                                                class="form-control b2b-import-trigger-url-field"
+                                                class="form-control b2b-import-api-url-field b2b-import-trigger-url-field"
                                                 value="{$importTriggerUrl|escape:'html':'UTF-8'}"
                                                 data-base-url="{$importTriggerBaseUrl|escape:'html':'UTF-8'}"
                                                 readonly="readonly"
@@ -323,7 +358,7 @@
                                         <span class="input-group-btn">
                                             <button
                                                     type="button"
-                                                    class="btn btn-default b2b-copy-import-trigger-url"
+                                                    class="btn btn-default b2b-copy-import-api-url b2b-copy-import-trigger-url"
                                                     {if empty($importTriggerHasKey)}disabled="disabled"{/if}
                                             >
                                                 <i class="icon-copy"></i>
@@ -459,19 +494,24 @@
     var b2bPriceImportAjaxUrl = '{$ajaxUrl|escape:'javascript':'UTF-8'}';
 
     $(document).ready(function () {
-        function updateImportTriggerUrl(accessKey) {
-            var $field = $('.b2b-import-trigger-url-field');
+        function updateImportApiUrls(accessKey) {
+            var $fields = $('.b2b-import-api-url-field');
 
-            if (!$field.length) {
+            if (!$fields.length) {
                 return;
             }
 
-            var baseUrl = String($field.data('base-url') || '');
             var hasKey = Boolean(accessKey);
-            var separator = baseUrl.indexOf('?') === -1 ? '?' : '&';
 
-            $field.val(hasKey ? baseUrl + separator + 'key=' + encodeURIComponent(accessKey) : baseUrl);
-            $('.b2b-copy-import-trigger-url').prop('disabled', !hasKey);
+            $fields.each(function () {
+                var $field = $(this);
+                var baseUrl = String($field.data('base-url') || '');
+                var separator = baseUrl.indexOf('?') === -1 ? '?' : '&';
+
+                $field.val(hasKey ? baseUrl + separator + 'key=' + encodeURIComponent(accessKey) : baseUrl);
+            });
+
+            $('.b2b-copy-import-api-url').prop('disabled', !hasKey);
         }
 
         function getCheckedConfigValues($container) {
@@ -506,7 +546,7 @@
                 success: function (response) {
                     if (response && response.success) {
                         if ($container.hasClass('b2b-secret-field')) {
-                            updateImportTriggerUrl(response.value || value);
+                            updateImportApiUrls(response.value || value);
                         }
 
                         $status
@@ -638,6 +678,17 @@
             );
         });
 
+        $('.b2b-copy-import-upload-url').on('click', function () {
+            var $control = $(this).closest('.b2b-import-upload-url-control');
+            var url = $control.find('.b2b-import-upload-url-field').val();
+
+            copyText(
+                url,
+                function () { setConfigStatus($control, 'text-success', 'Upload URL copied.'); },
+                function () { setConfigStatus($control, 'text-danger', 'Cannot copy the upload URL.'); }
+            );
+        });
+
         $('.b2b-copy-config-value').on('click', function () {
             var $control = $(this).closest('.b2b-readonly-config-control');
             var value = $control.find('.b2b-readonly-config-field').val();
@@ -686,7 +737,7 @@
                 success: function (response) {
                     if (response && response.success && response.value) {
                         $field.val(response.value);
-                        updateImportTriggerUrl(response.value);
+                        updateImportApiUrls(response.value);
                         $confirmation.show();
                         $confirmationCheckbox.prop('checked', false);
                         setConfigStatus($control, 'text-success', response.message || 'Key generated.');
