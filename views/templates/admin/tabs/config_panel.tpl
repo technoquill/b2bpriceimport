@@ -194,6 +194,24 @@
                                                 </label>
                                             {/foreach}
                                         </div>
+                                    {elseif $config.type == 'multiselect'}
+                                        <div
+                                                class="b2b-config-checkbox-list"
+                                                data-config-key="{$config.key|escape:'html':'UTF-8'}"
+                                                data-config-type="{$config.type|escape:'html':'UTF-8'}"
+                                        >
+                                            {foreach from=$config.options item=option}
+                                                <label class="b2b-config-checkbox-item">
+                                                    <input
+                                                            type="checkbox"
+                                                            class="b2b-config-checkbox"
+                                                            value="{$option.value|escape:'html':'UTF-8'}"
+                                                            {if in_array($option.value, $config.value)}checked="checked"{/if}
+                                                    />
+                                                    {$option.label|escape:'html':'UTF-8'}
+                                                </label>
+                                            {/foreach}
+                                        </div>
                                     {elseif $config.type == 'text'}
                                         {if !empty($config.readonly)}
                                             <div class="input-group b2b-readonly-config-control">

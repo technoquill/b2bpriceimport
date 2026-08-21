@@ -22,8 +22,15 @@ final class B2BPriceImportConfig
     public const IMPORT_LOCK_TTL = 'B2BPRICEIMPORT_IMPORT_LOCK_TTL';
     public const IMPORT_OUTPUT_FORMAT = 'B2BPRICEIMPORT_IMPORT_OUTPUT_FORMAT';
     public const IMPORT_API_KEY = 'B2BPRICEIMPORT_IMPORT_API_KEY';
+    public const LOG_ENABLED = 'B2BPRICEIMPORT_LOG_ENABLED';
+    public const LOG_ENTITY_TYPES = 'B2BPRICEIMPORT_LOG_ENTITY_TYPES';
+    public const LOG_RESULTS = 'B2BPRICEIMPORT_LOG_RESULTS';
+    public const LOG_STORE_CHANGES = 'B2BPRICEIMPORT_LOG_STORE_CHANGES';
+    public const LOG_PRODUCT_MODE = 'B2BPRICEIMPORT_LOG_PRODUCT_MODE';
+    public const LOG_RETENTION_DAYS = 'B2BPRICEIMPORT_LOG_RETENTION_DAYS';
 
     public const TYPE_GROUP_MULTISELECT = 'group_multiselect';
+    public const TYPE_MULTISELECT = 'multiselect';
     public const TYPE_TEXT = 'text';
     public const TYPE_INTEGER = 'integer';
     public const TYPE_SELECT = 'select';
@@ -34,12 +41,28 @@ final class B2BPriceImportConfig
 
     public const SECTION_DISCOUNT_MATRIX = 'discount_matrix';
     public const SECTION_IMPORT = 'import';
+    public const SECTION_LOGGING = 'logging';
 
     public const GROUP_1C_INTEGRATION = '1c_integration';
     public const GROUP_IMPORT_PROCESSING = 'import_processing';
     public const GROUP_ADVANCED_CLI = 'advanced_cli';
     public const GROUP_SYSTEM_INFORMATION = 'system_information';
     public const GROUP_DISCOUNT_MATRIX = 'discount_matrix';
+    public const GROUP_LOGGING = 'logging';
+
+    public const LOG_ENTITY_FILE = 'file';
+    public const LOG_ENTITY_IMPORT = 'import';
+    public const LOG_ENTITY_PRODUCT = 'product';
+    public const LOG_ENTITY_CONFIG = 'config';
+    public const LOG_ENTITY_DISCOUNT_RULE = 'discount_rule';
+    public const LOG_ENTITY_SYSTEM = 'system';
+
+    public const LOG_RESULT_SUCCESS = 'success';
+    public const LOG_RESULT_WARNING = 'warning';
+    public const LOG_RESULT_ERROR = 'error';
+
+    public const LOG_PRODUCT_MODE_SUMMARY = 'summary';
+    public const LOG_PRODUCT_MODE_DETAILED = 'detailed';
 
     public function getGroups(): array
     {
@@ -91,6 +114,15 @@ final class B2BPriceImportConfig
                 'collapsed' => false,
                 'order' => 50,
             ],
+            [
+                'key' => self::GROUP_LOGGING,
+                'section' => self::SECTION_LOGGING,
+                'label' => 'Logging',
+                'description' => 'Choose which module actions are written to the audit log and how long they are retained.',
+                'icon' => 'icon-list-alt',
+                'collapsed' => false,
+                'order' => 60,
+            ],
         ];
     }
 
@@ -107,6 +139,134 @@ final class B2BPriceImportConfig
             $this->importTimeLimit(),
             $this->importLockTtl(),
             $this->importOutputFormat(),
+            $this->logEnabled(),
+            $this->logEntityTypes(),
+            $this->logResults(),
+            $this->logStoreChanges(),
+            $this->logProductMode(),
+            $this->logRetentionDays(),
+        ];
+    }
+
+    public function logEnabled(): array
+    {
+        return [
+            'key' => self::LOG_ENABLED,
+            'section' => self::SECTION_LOGGING,
+            'group' => self::GROUP_LOGGING,
+            'type' => self::TYPE_SELECT,
+            'storage' => self::STORAGE_SCALAR,
+            'default' => '1',
+            'label' => 'Enable logging',
+            'description' => 'Master switch for writing module actions to the audit log.',
+            'options' => [
+                ['value' => '1', 'label' => 'Yes'],
+                ['value' => '0', 'label' => 'No'],
+            ],
+        ];
+    }
+
+    public function logEntityTypes(): array
+    {
+        return [
+            'key' => self::LOG_ENTITY_TYPES,
+            'section' => self::SECTION_LOGGING,
+            'group' => self::GROUP_LOGGING,
+            'type' => self::TYPE_MULTISELECT,
+            'storage' => self::STORAGE_JSON,
+            'default' => [
+                self::LOG_ENTITY_FILE,
+                self::LOG_ENTITY_IMPORT,
+                self::LOG_ENTITY_PRODUCT,
+                self::LOG_ENTITY_CONFIG,
+                self::LOG_ENTITY_DISCOUNT_RULE,
+                self::LOG_ENTITY_SYSTEM,
+            ],
+            'label' => 'Entity types to log',
+            'description' => 'Only actions for the selected entity types will be written to the audit log.',
+            'options' => [
+                ['value' => self::LOG_ENTITY_FILE, 'label' => 'Files'],
+                ['value' => self::LOG_ENTITY_IMPORT, 'label' => 'Imports'],
+                ['value' => self::LOG_ENTITY_PRODUCT, 'label' => 'Products'],
+                ['value' => self::LOG_ENTITY_CONFIG, 'label' => 'Configuration'],
+                ['value' => self::LOG_ENTITY_DISCOUNT_RULE, 'label' => 'Discount rules'],
+                ['value' => self::LOG_ENTITY_SYSTEM, 'label' => 'System'],
+            ],
+        ];
+    }
+
+    public function logResults(): array
+    {
+        return [
+            'key' => self::LOG_RESULTS,
+            'section' => self::SECTION_LOGGING,
+            'group' => self::GROUP_LOGGING,
+            'type' => self::TYPE_MULTISELECT,
+            'storage' => self::STORAGE_JSON,
+            'default' => [
+                self::LOG_RESULT_SUCCESS,
+                self::LOG_RESULT_WARNING,
+                self::LOG_RESULT_ERROR,
+            ],
+            'label' => 'Results to log',
+            'description' => 'Record successful actions, warnings, errors, or any combination of them.',
+            'options' => [
+                ['value' => self::LOG_RESULT_SUCCESS, 'label' => 'Success'],
+                ['value' => self::LOG_RESULT_WARNING, 'label' => 'Warning'],
+                ['value' => self::LOG_RESULT_ERROR, 'label' => 'Error'],
+            ],
+        ];
+    }
+
+    public function logStoreChanges(): array
+    {
+        return [
+            'key' => self::LOG_STORE_CHANGES,
+            'section' => self::SECTION_LOGGING,
+            'group' => self::GROUP_LOGGING,
+            'type' => self::TYPE_SELECT,
+            'storage' => self::STORAGE_SCALAR,
+            'default' => '1',
+            'label' => 'Store before/after values',
+            'description' => 'Store previous and new values when an action changes data. Secrets are always excluded.',
+            'options' => [
+                ['value' => '1', 'label' => 'Yes'],
+                ['value' => '0', 'label' => 'No'],
+            ],
+        ];
+    }
+
+    public function logProductMode(): array
+    {
+        return [
+            'key' => self::LOG_PRODUCT_MODE,
+            'section' => self::SECTION_LOGGING,
+            'group' => self::GROUP_LOGGING,
+            'type' => self::TYPE_SELECT,
+            'storage' => self::STORAGE_SCALAR,
+            'default' => self::LOG_PRODUCT_MODE_SUMMARY,
+            'label' => 'Product logging mode',
+            'description' => 'Summary writes aggregate product changes per import; detailed writes one event for every changed product.',
+            'options' => [
+                ['value' => self::LOG_PRODUCT_MODE_SUMMARY, 'label' => 'Summary per import'],
+                ['value' => self::LOG_PRODUCT_MODE_DETAILED, 'label' => 'Every product change'],
+            ],
+        ];
+    }
+
+    public function logRetentionDays(): array
+    {
+        return [
+            'key' => self::LOG_RETENTION_DAYS,
+            'section' => self::SECTION_LOGGING,
+            'group' => self::GROUP_LOGGING,
+            'type' => self::TYPE_INTEGER,
+            'storage' => self::STORAGE_SCALAR,
+            'default' => 180,
+            'min' => 0,
+            'max' => 3650,
+            'label' => 'Log retention, days',
+            'description' => 'Delete log entries older than this value. Use 0 to keep logs indefinitely.',
         ];
     }
 
