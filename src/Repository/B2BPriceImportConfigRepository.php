@@ -240,6 +240,70 @@ final class B2BPriceImportConfigRepository
     /**
      * @throws Exception
      */
+    public function isLoggingEnabled(): bool
+    {
+        return (string) $this->get(B2BPriceImportConfig::LOG_ENABLED) === '1';
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getLogEntityTypes(): array
+    {
+        return $this->get(B2BPriceImportConfig::LOG_ENTITY_TYPES);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function shouldLogEntityType(string $entityType): bool
+    {
+        return in_array($entityType, $this->getLogEntityTypes(), true);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getLogResults(): array
+    {
+        return $this->get(B2BPriceImportConfig::LOG_RESULTS);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function shouldLogResult(string $result): bool
+    {
+        return in_array($result, $this->getLogResults(), true);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function shouldStoreLogChanges(): bool
+    {
+        return (string) $this->get(B2BPriceImportConfig::LOG_STORE_CHANGES) === '1';
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getLogProductMode(): string
+    {
+        return (string) $this->get(B2BPriceImportConfig::LOG_PRODUCT_MODE);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getLogRetentionDays(): int
+    {
+        return (int) $this->get(B2BPriceImportConfig::LOG_RETENTION_DAYS);
+    }
+
+    /**
+     * @throws Exception
+     */
     private function normalizeFromStorage(array $definition, $rawValue)
     {
         $storage = $definition['storage'] ?? null;
@@ -283,6 +347,29 @@ final class B2BPriceImportConfigRepository
             });
 
             return array_values(array_unique($value));
+        }
+
+        if ($type === B2BPriceImportConfig::TYPE_MULTISELECT) {
+            if (!is_array($value)) {
+                $value = [];
+            }
+
+            $allowedValues = [];
+
+            foreach (($definition['options'] ?? []) as $option) {
+                $allowedValues[] = (string) $option['value'];
+            }
+
+            $value = array_map('strval', $value);
+            $value = array_values(array_unique($value));
+
+            foreach ($value as $selectedValue) {
+                if (!in_array($selectedValue, $allowedValues, true)) {
+                    throw new Exception('Configuration value is not allowed.');
+                }
+            }
+
+            return $value;
         }
 
         if ($type === B2BPriceImportConfig::TYPE_TEXT) {

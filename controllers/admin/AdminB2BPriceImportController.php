@@ -73,6 +73,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $importCliCommand = $this->buildImportCliCommand();
             $assign['configGroups'] = array_merge(
                 $configRepository->getGroupedDefinitions(B2BPriceImportConfig::SECTION_IMPORT),
+                $configRepository->getGroupedDefinitions(B2BPriceImportConfig::SECTION_LOGGING),
                 $configRepository->getGroupedDefinitions(B2BPriceImportConfig::SECTION_DISCOUNT_MATRIX)
             );
             $assign['allGroups'] = $this->getAllCustomerGroups();
