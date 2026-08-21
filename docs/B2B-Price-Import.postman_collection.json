@@ -8,11 +8,11 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "https://example.com"
+      "value": "https://b2b-mriya.dev/"
     },
     {
       "key": "access_key",
-      "value": ""
+      "value": "346981c426a0906870c52d8ccc470e9b194e44f1bece06f0cc801c0321a9af1a"
     },
     {
       "key": "stored_filename",
