@@ -13,7 +13,8 @@ final class PriceImportProcessor
 {
     public function __construct(
         private readonly ?ImportRepository $repository = null,
-        private readonly ?ProductPriceUpdater $productPriceUpdater = null
+        private readonly ?ProductPriceUpdater $productPriceUpdater = null,
+        private readonly ?AuditLogService $auditLogger = null
     ) {
     }
 
@@ -21,6 +22,8 @@ final class PriceImportProcessor
     {
         $repository = $this->repository ?: new ImportRepository();
         $updater = $this->productPriceUpdater ?: new ProductPriceUpdater();
+        $auditLogger = $this->auditLogger ?: new AuditLogService();
+        $detailedProductLogging = $auditLogger->isDetailedProductLogging();
 
         if ($repository->find($idImport) === null) {
             throw new RuntimeException('Import not found.');
@@ -34,19 +37,58 @@ final class PriceImportProcessor
         foreach ($repository->getPendingStagingRows($idImport, $limit) as $row) {
             $idStaging = (int) $row['id_b2b_import_price_staging'];
             $idItem = (int) $row['id_b2b_import_item'];
+            $idProduct = (int) $row['id_product'];
+            $before = null;
 
             try {
-                $idProduct = (int) $row['id_product'];
                 $priceUah = (float) $row['price_uah'];
                 $active = $row['active'] !== null ? (int) $row['active'] : null;
 
+                if ($detailedProductLogging) {
+                    $before = $this->getProductAuditState($updater, $idProduct);
+                }
+
                 $updater->applyDiscountMatrix($idProduct, $priceUah);
                 $updater->updateProduct($idProduct, $priceUah, $active);
+
+                if ($detailedProductLogging) {
+                    $auditLogger->record(
+                        'product.price_updated',
+                        'product',
+                        'success',
+                        'Product prices updated by import.',
+                        (string) $idProduct,
+                        $before,
+                        $this->getProductAuditState($updater, $idProduct),
+                        [
+                            'import_id' => $idImport,
+                            'reference' => (string) ($row['reference'] ?? ''),
+                            'id_import_item' => $idItem,
+                        ]
+                    );
+                }
 
                 $repository->markRowProcessed($idStaging, $idItem);
                 $processed++;
             } catch (Throwable $exception) {
                 $repository->markRowFailed($idStaging, $idItem, 'PROCESSING_ERROR', $exception->getMessage());
+
+                if ($detailedProductLogging) {
+                    $auditLogger->record(
+                        'product.update_failed',
+                        'product',
+                        'error',
+                        $exception->getMessage(),
+                        $idProduct > 0 ? (string) $idProduct : null,
+                        $before,
+                        null,
+                        [
+                            'import_id' => $idImport,
+                            'reference' => (string) ($row['reference'] ?? ''),
+                            'id_import_item' => $idItem,
+                        ]
+                    );
+                }
                 $errors++;
             }
         }
@@ -55,5 +97,14 @@ final class PriceImportProcessor
         $repository->setStatus($idImport, $errors > 0 ? ImportStatus::FAILED : ImportStatus::FINISHED);
 
         return ['processed' => $processed, 'failed' => $errors];
+    }
+
+    private function getProductAuditState(ProductPriceUpdater $updater, int $idProduct): ?array
+    {
+        try {
+            return $updater->getAuditState($idProduct);
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

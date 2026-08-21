@@ -13,8 +13,10 @@ use SplFileInfo;
 
 final class ImportFileScannerService
 {
-    public function __construct(private readonly ?ImportRepository $repository = null)
-    {
+    public function __construct(
+        private readonly ?ImportRepository $repository = null,
+        private readonly ?AuditLogService $auditLogger = null
+    ) {
     }
 
     public function scanAndCreateImports(
@@ -141,8 +143,52 @@ final class ImportFileScannerService
         }
 
         if ($requestedFilename !== null && !$requestedFileFound) {
+            ($this->auditLogger ?: new AuditLogService())->record(
+                'file.scan_failed',
+                'file',
+                'error',
+                'Requested CSV file was not found by the scanner.',
+                $requestedFilename,
+                null,
+                null,
+                ['requested_filename' => $requestedFilename]
+            );
             throw new RuntimeException('Requested CSV file was not found: ' . $requestedFilename);
         }
+
+        $auditResult = !empty($skipped) ? 'warning' : 'success';
+        ($this->auditLogger ?: new AuditLogService())->record(
+            'file.scan_completed',
+            'file',
+            $auditResult,
+            sprintf(
+                'File scan completed: %d registered, %d skipped.',
+                count($created),
+                count($skipped)
+            ),
+            $requestedFilename,
+            null,
+            null,
+            [
+                'created' => array_map(
+                    static fn (array $item): array => [
+                        'id_import' => (int) ($item['id_import'] ?? 0),
+                        'file' => basename((string) ($item['file'] ?? '')),
+                        'hash' => (string) ($item['hash'] ?? ''),
+                    ],
+                    $created
+                ),
+                'skipped' => array_map(
+                    static fn (array $item): array => [
+                        'file' => basename((string) ($item['file'] ?? '')),
+                        'reason' => (string) ($item['reason'] ?? 'unknown'),
+                    ],
+                    array_slice($skipped, 0, 100)
+                ),
+                'skipped_total' => count($skipped),
+                'skipped_truncated' => count($skipped) > 100,
+            ]
+        );
 
         return [
             'created' => $created,

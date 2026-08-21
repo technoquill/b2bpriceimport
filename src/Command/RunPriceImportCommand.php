@@ -10,6 +10,7 @@ use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
 use B2B\PriceImport\Repository\ImportRepository;
 use B2B\PriceImport\Service\ImportFileScannerService;
 use B2B\PriceImport\Service\ImportLockService;
+use B2B\PriceImport\Service\AuditLogService;
 use B2B\PriceImport\Service\PriceImportRunService;
 use B2B\PriceImport\Service\PriceImportParser;
 use B2B\PriceImport\Service\PriceImportProcessor;
@@ -154,6 +155,18 @@ final class RunPriceImportCommand extends Command
         } catch (Throwable $exception) {
             $summary['error_code'] = PriceImportRunService::ERROR_FAILED;
             $summary['message'] = $exception->getMessage();
+
+            (new AuditLogService())->record(
+                'system.cli_command_failed',
+                'system',
+                'error',
+                $exception->getMessage(),
+                'b2b:price-import:run',
+                null,
+                null,
+                ['error_code' => PriceImportRunService::ERROR_FAILED],
+                'cli'
+            );
 
             $format = self::FORMAT_TEXT;
             try {

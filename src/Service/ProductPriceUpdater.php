@@ -13,6 +13,48 @@ use SpecificPrice;
 
 final class ProductPriceUpdater
 {
+    public function getAuditState(int $idProduct): array
+    {
+        $idShop = (int) Shop::getContextShopID();
+        $product = Db::getInstance()->getRow(
+            'SELECT COALESCE(ps.price, p.price) AS price, ps.active
+             FROM `' . _DB_PREFIX_ . 'product` p
+             LEFT JOIN `' . _DB_PREFIX_ . 'product_shop` ps
+               ON ps.id_product = p.id_product
+              AND ps.id_shop = ' . $idShop . '
+             WHERE p.id_product = ' . (int) $idProduct
+        );
+
+        $query = new DbQuery();
+        $query->select('id_group, id_shop, price');
+        $query->from('specific_price');
+        $query->where('id_product = ' . (int) $idProduct);
+        $query->where('id_group > 0');
+        $query->where('id_customer = 0');
+        $query->where('id_product_attribute = 0');
+        $query->where('id_currency = 0');
+        $query->where('id_country = 0');
+        $query->where('from_quantity = 1');
+        $query->orderBy('id_group ASC, id_shop ASC, id_specific_price ASC');
+
+        $rows = Db::getInstance()->executeS($query);
+        $groupPrices = [];
+
+        foreach (is_array($rows) ? $rows : [] as $row) {
+            $groupPrices[] = [
+                'id_group' => (int) $row['id_group'],
+                'id_shop' => (int) $row['id_shop'],
+                'price' => (string) $row['price'],
+            ];
+        }
+
+        return [
+            'price' => is_array($product) ? (string) ($product['price'] ?? '') : null,
+            'active' => is_array($product) ? (int) ($product['active'] ?? 0) : null,
+            'group_prices' => $groupPrices,
+        ];
+    }
+
     public function updateProduct(int $idProduct, float $priceUah, ?int $active): void
     {
         if ($idProduct <= 0) {

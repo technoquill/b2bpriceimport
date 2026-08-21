@@ -10,6 +10,7 @@ if (file_exists(_PS_MODULE_DIR_ . 'b2bpriceimport/vendor/autoload.php')) {
 
 use B2B\PriceImport\DTO\ImportRunOptions;
 use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
+use B2B\PriceImport\Service\AuditLogService;
 use B2B\PriceImport\Service\PriceImportRunService;
 
 class B2bPriceImportImportModuleFrontController extends ModuleFrontController
@@ -32,6 +33,17 @@ class B2bPriceImportImportModuleFrontController extends ModuleFrontController
         $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
         if (!in_array($method, ['GET', 'POST'], true)) {
+            (new AuditLogService())->record(
+                'system.import_api_rejected',
+                'system',
+                'error',
+                'Only GET and POST requests are allowed.',
+                'import_trigger',
+                null,
+                null,
+                ['method' => $method],
+                'api'
+            );
             header('Allow: GET, POST');
             $this->sendJsonResponse([
                 'success' => false,
@@ -44,6 +56,17 @@ class B2bPriceImportImportModuleFrontController extends ModuleFrontController
             $configRepository = new B2BPriceImportConfigRepository();
 
             if (!$configRepository->isImportApiKeyValid($this->getProvidedAccessKey())) {
+                (new AuditLogService())->record(
+                    'system.authentication_failed',
+                    'system',
+                    'error',
+                    'Invalid access key supplied to the import endpoint.',
+                    'import_trigger',
+                    null,
+                    null,
+                    [],
+                    'api'
+                );
                 $this->sendJsonResponse([
                     'success' => false,
                     'error_code' => 'INVALID_ACCESS_KEY',
@@ -79,12 +102,34 @@ class B2bPriceImportImportModuleFrontController extends ModuleFrontController
 
             $this->sendJsonResponse($this->buildPublicSummary($summary), $statusCode);
         } catch (InvalidArgumentException $exception) {
+            (new AuditLogService())->record(
+                'system.import_api_failed',
+                'system',
+                'error',
+                $exception->getMessage(),
+                'import_trigger',
+                null,
+                null,
+                ['error_code' => PriceImportRunService::ERROR_INVALID_OPTIONS],
+                'api'
+            );
             $this->sendJsonResponse([
                 'success' => false,
                 'error_code' => PriceImportRunService::ERROR_INVALID_OPTIONS,
                 'message' => $exception->getMessage(),
             ], 400);
         } catch (Throwable $exception) {
+            (new AuditLogService())->record(
+                'system.import_api_failed',
+                'system',
+                'error',
+                $exception->getMessage(),
+                'import_trigger',
+                null,
+                null,
+                ['error_code' => PriceImportRunService::ERROR_FAILED],
+                'api'
+            );
             $this->sendJsonResponse([
                 'success' => false,
                 'error_code' => PriceImportRunService::ERROR_FAILED,

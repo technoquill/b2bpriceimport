@@ -189,4 +189,36 @@ CREATE TABLE IF NOT EXISTS `PREFIX_b2b_import_lock` (
     ) ENGINE=InnoDB DEFAULT CHARSET=DB_CHARSET COLLATE=DB_COLLATION;
 
 
+/**
+  * b2b_audit_log
+ */
+CREATE TABLE IF NOT EXISTS `PREFIX_b2b_audit_log` (
+
+    `id_b2b_audit_log` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+
+    `action` VARCHAR(96) NOT NULL,
+    `entity_type` VARCHAR(32) NOT NULL,
+    `entity_id` VARCHAR(255) DEFAULT NULL,
+    `result` VARCHAR(16) NOT NULL,
+
+    `actor_type` VARCHAR(32) NOT NULL DEFAULT 'system',
+    `actor_id` INT UNSIGNED DEFAULT NULL,
+    `actor_name` VARCHAR(255) DEFAULT NULL,
+    `channel` VARCHAR(32) NOT NULL DEFAULT 'system',
+
+    `message` TEXT NOT NULL,
+    `before_json` LONGTEXT DEFAULT NULL,
+    `after_json` LONGTEXT DEFAULT NULL,
+    `context_json` LONGTEXT DEFAULT NULL,
+
+    `date_add` DATETIME NOT NULL,
+
+    PRIMARY KEY (`id_b2b_audit_log`),
+    KEY `date_add` (`date_add`),
+    KEY `entity` (`entity_type`, `entity_id`),
+    KEY `action_result` (`action`, `result`),
+    KEY `channel` (`channel`),
+    KEY `actor_id` (`actor_id`)
+
+    ) ENGINE=InnoDB DEFAULT CHARSET=DB_CHARSET COLLATE=DB_COLLATION;
 

@@ -6,6 +6,7 @@ namespace B2B\PriceImport\Repository;
 
 use B2B\PriceImport\Constant\ImportStatus;
 use B2B\PriceImport\DTO\ImportCreateData;
+use B2B\PriceImport\Service\AuditLogService;
 use Db;
 use DbQuery;
 use RuntimeException;
@@ -34,7 +35,28 @@ final class ImportRepository
             throw new RuntimeException('Cannot create import record.');
         }
 
-        return (int) Db::getInstance()->Insert_ID();
+        $idImport = (int) Db::getInstance()->Insert_ID();
+
+        (new AuditLogService())->record(
+            'import.created',
+            'import',
+            'success',
+            'Import registered.',
+            (string) $idImport,
+            null,
+            [
+                'status' => ImportStatus::UPLOADED,
+                'filename' => $data->originalFilename,
+                'source' => $data->source,
+            ],
+            [
+                'stored_filename' => $data->storedFilename,
+                'file_size' => $data->fileSize,
+                'file_hash' => $data->fileHash,
+            ]
+        );
+
+        return $idImport;
     }
 
     public function createJob(int $idImport, string $type, int $priority = 5): int

@@ -9,6 +9,7 @@ if (file_exists(_PS_MODULE_DIR_ . 'b2bpriceimport/vendor/autoload.php')) {
 }
 
 use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
+use B2B\PriceImport\Service\AuditLogService;
 use B2B\PriceImport\Service\ImportFileStorageService;
 
 class B2bPriceImportUploadModuleFrontController extends ModuleFrontController
@@ -29,6 +30,17 @@ class B2bPriceImportUploadModuleFrontController extends ModuleFrontController
         parent::postProcess();
 
         if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
+            (new AuditLogService())->record(
+                'file.upload_failed',
+                'file',
+                'error',
+                'Only POST requests are allowed.',
+                null,
+                null,
+                null,
+                ['error_code' => 'METHOD_NOT_ALLOWED'],
+                'api'
+            );
             header('Allow: POST');
             $this->sendJsonResponse([
                 'success' => false,
@@ -41,6 +53,17 @@ class B2bPriceImportUploadModuleFrontController extends ModuleFrontController
             $configRepository = new B2BPriceImportConfigRepository();
 
             if (!$configRepository->isImportApiKeyValid($this->getProvidedAccessKey())) {
+                (new AuditLogService())->record(
+                    'system.authentication_failed',
+                    'system',
+                    'error',
+                    'Invalid access key supplied to the CSV upload endpoint.',
+                    'csv_upload',
+                    null,
+                    null,
+                    [],
+                    'api'
+                );
                 $this->sendJsonResponse([
                     'success' => false,
                     'error_code' => 'INVALID_ACCESS_KEY',
@@ -49,6 +72,7 @@ class B2bPriceImportUploadModuleFrontController extends ModuleFrontController
             }
 
             if (!isset($_FILES['file']) || !is_array($_FILES['file'])) {
+                $this->logUploadFailure('FILE_REQUIRED', 'Multipart file field "file" is required.');
                 $this->sendJsonResponse([
                     'success' => false,
                     'error_code' => 'FILE_REQUIRED',
@@ -59,6 +83,7 @@ class B2bPriceImportUploadModuleFrontController extends ModuleFrontController
             $uploadError = (int) ($_FILES['file']['error'] ?? UPLOAD_ERR_NO_FILE);
 
             if (in_array($uploadError, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+                $this->logUploadFailure('FILE_TOO_LARGE', 'The uploaded CSV file exceeds the allowed size.');
                 $this->sendJsonResponse([
                     'success' => false,
                     'error_code' => 'FILE_TOO_LARGE',
@@ -67,6 +92,10 @@ class B2bPriceImportUploadModuleFrontController extends ModuleFrontController
             }
 
             if ($uploadError !== UPLOAD_ERR_OK) {
+                $this->logUploadFailure(
+                    'UPLOAD_FAILED',
+                    'CSV upload failed with error code ' . $uploadError . '.'
+                );
                 $this->sendJsonResponse([
                     'success' => false,
                     'error_code' => 'UPLOAD_FAILED',
@@ -75,6 +104,23 @@ class B2bPriceImportUploadModuleFrontController extends ModuleFrontController
             }
 
             $file = (new ImportFileStorageService())->storeUploadedCsv($_FILES['file'], null);
+
+            (new AuditLogService())->record(
+                'file.uploaded',
+                'file',
+                'success',
+                'CSV file uploaded through the API.',
+                (string) $file->storedFilename,
+                null,
+                [
+                    'original_filename' => $file->originalFilename,
+                    'stored_filename' => $file->storedFilename,
+                    'file_size' => $file->fileSize,
+                    'file_hash' => $file->fileHash,
+                ],
+                [],
+                'api'
+            );
 
             $this->sendJsonResponse([
                 'success' => true,
@@ -88,6 +134,7 @@ class B2bPriceImportUploadModuleFrontController extends ModuleFrontController
                 'message' => 'CSV file uploaded. The import was not started.',
             ], 201);
         } catch (Throwable $exception) {
+            $this->logUploadFailure('UPLOAD_FAILED', $exception->getMessage());
             $this->sendJsonResponse([
                 'success' => false,
                 'error_code' => 'UPLOAD_FAILED',
@@ -107,6 +154,28 @@ class B2bPriceImportUploadModuleFrontController extends ModuleFrontController
         $requestKey = Tools::getValue('key', '');
 
         return is_string($requestKey) ? trim($requestKey) : '';
+    }
+
+    private function logUploadFailure(string $errorCode, string $message): void
+    {
+        $filename = isset($_FILES['file']['name'])
+            ? basename((string) $_FILES['file']['name'])
+            : null;
+
+        (new AuditLogService())->record(
+            'file.upload_failed',
+            'file',
+            'error',
+            $message,
+            $filename,
+            null,
+            null,
+            [
+                'error_code' => $errorCode,
+                'original_filename' => $filename,
+            ],
+            'api'
+        );
     }
 
     private function sendJsonResponse(array $payload, int $statusCode): void
