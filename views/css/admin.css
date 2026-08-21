@@ -149,6 +149,87 @@ body.b2b-import-processing {
     margin: 0;
 }
 
+.b2b-logs-filters {
+    margin-bottom: 18px;
+    padding: 15px 15px 0;
+    border: 1px solid #ddd;
+    background: #f8f8f8;
+}
+
+.b2b-logs-filters label {
+    display: block;
+}
+
+.b2b-logs-filter-actions {
+    padding-top: 25px;
+    text-align: right;
+}
+
+.b2b-logs-table-wrapper {
+    margin-bottom: 0;
+    border: 1px solid #ddd;
+}
+
+.b2b-logs-table {
+    min-width: 1200px;
+    margin-bottom: 0;
+}
+
+.b2b-logs-table > tbody > tr > td {
+    vertical-align: middle;
+}
+
+.b2b-logs-message {
+    min-width: 260px;
+    max-width: 460px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.b2b-log-details-row > td {
+    padding: 15px !important;
+    background: #f5f8f9;
+}
+
+.b2b-log-details-row h4 {
+    margin-top: 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.b2b-log-details-row pre {
+    max-height: 340px;
+    margin-bottom: 0;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.b2b-logs-footer,
+.b2b-logs-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.b2b-logs-footer {
+    justify-content: space-between;
+    margin-top: 15px;
+}
+
+.b2b-logs-footer .pagination {
+    margin: 0;
+}
+
+.b2b-logs-summary label {
+    margin: 0 0 0 10px;
+    font-weight: 400;
+}
+
+.b2b-logs-page-size {
+    width: auto;
+}
+
 @media (max-width: 767px) {
     .b2b-import-items-toolbar .btn {
         width: 100%;
@@ -162,5 +243,15 @@ body.b2b-import-processing {
     .b2b-import-items-pagination {
         width: 100%;
         overflow-x: auto;
+    }
+
+    .b2b-logs-filter-actions {
+        padding-top: 0;
+        text-align: left;
+    }
+
+    .b2b-logs-footer {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }

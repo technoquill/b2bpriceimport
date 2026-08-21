@@ -26,7 +26,8 @@ final class PriceImportRunService
         private readonly ?PriceImportParser $parser = null,
         private readonly ?PriceImportProcessor $processor = null,
         private readonly ?ImportLockService $lockService = null,
-        private readonly ?ImportFileScannerService $scanner = null
+        private readonly ?ImportFileScannerService $scanner = null,
+        private readonly ?AuditLogService $auditLogger = null
     ) {
     }
 
@@ -34,7 +35,9 @@ final class PriceImportRunService
     {
         $summary = $this->createSummary();
         $lockService = $this->lockService ?: new ImportLockService();
+        $auditLogger = $this->auditLogger ?: new AuditLogService();
         $lockAcquired = false;
+        $runStarted = false;
 
         try {
             $requestedFilename = ImportFileScannerService::normalizeRequestedFilename(
@@ -63,6 +66,20 @@ final class PriceImportRunService
                 $summary['error_code'] = self::ERROR_LOCKED;
                 $summary['message'] = 'Another price import is already running.';
 
+                $auditLogger->record(
+                    'system.import_locked',
+                    'system',
+                    'warning',
+                    $summary['message'],
+                    self::RUN_LOCK_NAME,
+                    null,
+                    null,
+                    [
+                        'import_id' => $options->importId,
+                        'filename' => $requestedFilename,
+                    ]
+                );
+
                 return $summary;
             }
 
@@ -84,6 +101,22 @@ final class PriceImportRunService
             $summary['import_id'] = $idImport;
             $summary['type'] = $options->type;
             $startedAt = time();
+            $runStarted = true;
+
+            $auditLogger->record(
+                'import.started',
+                'import',
+                'success',
+                'Import processing started.',
+                (string) $idImport,
+                null,
+                ['type' => $options->type],
+                [
+                    'batch_limit' => $options->batchLimit,
+                    'time_limit' => $options->timeLimit,
+                    'filename' => $requestedFilename,
+                ]
+            );
 
             if ($options->type === self::TYPE_PARSE || $options->type === self::TYPE_ALL) {
                 $summary['parse'] = ($this->parser ?: new PriceImportParser())->parse($idImport);
@@ -111,12 +144,81 @@ final class PriceImportRunService
 
             $summary['success'] = true;
             $summary['message'] = 'Import command finished.';
+
+            $failedRows = (int) ($summary['parse']['failed'] ?? 0)
+                + (int) ($summary['process']['failed'] ?? 0);
+            $auditResult = $failedRows > 0 ? 'warning' : 'success';
+
+            $auditLogger->record(
+                'import.completed',
+                'import',
+                $auditResult,
+                $failedRows > 0
+                    ? sprintf('Import completed with %d failed row(s).', $failedRows)
+                    : 'Import completed successfully.',
+                (string) $idImport,
+                null,
+                [
+                    'type' => $options->type,
+                    'parse' => $summary['parse'],
+                    'process' => $summary['process'],
+                ],
+                ['duration_seconds' => time() - $startedAt]
+            );
+
+            if (
+                $auditLogger->isSummaryProductLogging()
+                && ((int) $summary['process']['processed'] > 0 || (int) $summary['process']['failed'] > 0)
+            ) {
+                $productAuditResult = (int) $summary['process']['failed'] > 0 ? 'warning' : 'success';
+                $auditLogger->record(
+                    'product.import_summary',
+                    'product',
+                    $productAuditResult,
+                    sprintf(
+                        'Product update summary: %d updated, %d failed.',
+                        (int) $summary['process']['processed'],
+                        (int) $summary['process']['failed']
+                    ),
+                    (string) $idImport,
+                    null,
+                    null,
+                    [
+                        'import_id' => $idImport,
+                        'updated' => (int) $summary['process']['processed'],
+                        'failed' => (int) $summary['process']['failed'],
+                        'batches' => (int) $summary['process']['batches'],
+                    ]
+                );
+            }
         } catch (InvalidArgumentException $exception) {
             $summary['error_code'] = self::ERROR_INVALID_OPTIONS;
             $summary['message'] = $exception->getMessage();
+
+            $auditLogger->record(
+                $runStarted ? 'import.failed' : 'system.import_run_failed',
+                $runStarted ? 'import' : 'system',
+                'error',
+                $exception->getMessage(),
+                $runStarted ? (string) ($summary['import_id'] ?? '') : null,
+                null,
+                null,
+                ['error_code' => self::ERROR_INVALID_OPTIONS]
+            );
         } catch (Throwable $exception) {
             $summary['error_code'] = self::ERROR_FAILED;
             $summary['message'] = $exception->getMessage();
+
+            $auditLogger->record(
+                $runStarted ? 'import.failed' : 'system.import_run_failed',
+                $runStarted ? 'import' : 'system',
+                'error',
+                $exception->getMessage(),
+                $runStarted ? (string) ($summary['import_id'] ?? '') : null,
+                null,
+                null,
+                ['error_code' => self::ERROR_FAILED]
+            );
         } finally {
             if ($lockAcquired) {
                 $lockService->release(self::RUN_LOCK_NAME);

@@ -13,7 +13,8 @@ final class PriceImportProcessor
 {
     public function __construct(
         private readonly ?ImportRepository $repository = null,
-        private readonly ?ProductPriceUpdater $productPriceUpdater = null
+        private readonly ?ProductPriceUpdater $productPriceUpdater = null,
+        private readonly ?AuditLogService $auditLogger = null
     ) {
     }
 
@@ -21,6 +22,8 @@ final class PriceImportProcessor
     {
         $repository = $this->repository ?: new ImportRepository();
         $updater = $this->productPriceUpdater ?: new ProductPriceUpdater();
+        $auditLogger = $this->auditLogger ?: new AuditLogService();
+        $detailedProductLogging = $auditLogger->isDetailedProductLogging();
 
         if ($repository->find($idImport) === null) {
             throw new RuntimeException('Import not found.');
@@ -72,5 +75,14 @@ final class PriceImportProcessor
             'batches' => $batches,
             'has_more' => false,
         ];
+    }
+
+    private function getProductAuditState(ProductPriceUpdater $updater, int $idProduct): ?array
+    {
+        try {
+            return $updater->getAuditState($idProduct);
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

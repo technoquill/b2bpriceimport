@@ -11,8 +11,10 @@ if (file_exists(_PS_MODULE_DIR_ . 'b2bpriceimport/vendor/autoload.php')) {
 use B2B\PriceImport\Config\B2BPriceImportConfig;
 use B2B\PriceImport\Constant\ImportStatus;
 use B2B\PriceImport\DTO\ImportRunOptions;
+use B2B\PriceImport\Repository\AuditLogRepository;
 use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
 use B2B\PriceImport\Repository\ImportRepository;
+use B2B\PriceImport\Service\AuditLogService;
 use B2B\PriceImport\Service\ImportFileStorageService;
 use B2B\PriceImport\Service\PriceImportRunService;
 
@@ -21,6 +23,8 @@ class AdminB2BPriceImportController extends ModuleAdminController
     private const EXISTING_IMPORT_FILE_LIMIT = 200;
     private const IMPORT_ITEMS_PAGE_SIZES = [20, 50, 100, 300, 1000];
     private const DEFAULT_IMPORT_ITEMS_PAGE_SIZE = 50;
+    private const LOG_PAGE_SIZES = [20, 50, 100, 300];
+    private const DEFAULT_LOG_PAGE_SIZE = 50;
     private const IMPORT_ITEM_FILTER_PARAMETERS = [
         'active' => 'items_active',
         'validation_status' => 'items_validation',
@@ -189,6 +193,10 @@ class AdminB2BPriceImportController extends ModuleAdminController
             }
         }
 
+        if ($activeSection === 'logs') {
+            $assign = array_merge($assign, $this->buildLogsViewData($baseUrl));
+        }
+
         $this->context->smarty->assign($assign);
 
         $this->setTemplate('index.tpl');
@@ -253,7 +261,21 @@ class AdminB2BPriceImportController extends ModuleAdminController
         $value = Tools::getValue('value', []);
 
         try {
-            $savedValue = $this->getConfigRepository()->save($key, $value);
+            $repository = $this->getConfigRepository();
+            $before = $repository->get($key);
+            $savedValue = $repository->save($key, $value);
+
+            $this->getAuditLogService()->record(
+                'config.updated',
+                'config',
+                'success',
+                'Module configuration updated.',
+                $key,
+                $this->buildConfigAuditValue($key, $before),
+                $this->buildConfigAuditValue($key, $savedValue),
+                [],
+                'admin'
+            );
 
             die(json_encode([
                 'success' => true,
@@ -261,6 +283,18 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 'value' => $savedValue,
             ]));
         } catch (Throwable $e) {
+            $this->getAuditLogService()->record(
+                'config.update_failed',
+                'config',
+                'error',
+                $e->getMessage(),
+                $key,
+                null,
+                null,
+                [],
+                'admin'
+            );
+
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -275,12 +309,36 @@ class AdminB2BPriceImportController extends ModuleAdminController
         try {
             $key = $this->getConfigRepository()->generateImportApiKey();
 
+            $this->getAuditLogService()->record(
+                'config.api_key_generated',
+                'config',
+                'success',
+                'A new import API key was generated.',
+                B2BPriceImportConfig::IMPORT_API_KEY,
+                null,
+                ['configured' => true],
+                [],
+                'admin'
+            );
+
             die(json_encode([
                 'success' => true,
                 'message' => 'A new import URL access key was generated and saved.',
                 'value' => $key,
             ]));
         } catch (Throwable $e) {
+            $this->getAuditLogService()->record(
+                'config.api_key_generation_failed',
+                'config',
+                'error',
+                $e->getMessage(),
+                B2BPriceImportConfig::IMPORT_API_KEY,
+                null,
+                null,
+                [],
+                'admin'
+            );
+
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -300,6 +358,23 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $employeeId = isset($this->context->employee->id) ? (int) $this->context->employee->id : null;
             $createData = (new ImportFileStorageService())->storeUploadedCsv($_FILES['import_file'], $employeeId);
 
+            $this->getAuditLogService()->record(
+                'file.uploaded',
+                'file',
+                'success',
+                'CSV file uploaded.',
+                (string) $createData->storedFilename,
+                null,
+                [
+                    'original_filename' => $createData->originalFilename,
+                    'stored_filename' => $createData->storedFilename,
+                    'file_size' => $createData->fileSize,
+                    'file_hash' => $createData->fileHash,
+                ],
+                [],
+                'admin'
+            );
+
             die(json_encode([
                 'success' => true,
                 'message' => 'CSV file uploaded. The import was not started.',
@@ -312,6 +387,21 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 ],
             ]));
         } catch (Throwable $e) {
+            $originalFilename = isset($_FILES['import_file']['name'])
+                ? basename((string) $_FILES['import_file']['name'])
+                : null;
+            $this->getAuditLogService()->record(
+                'file.upload_failed',
+                'file',
+                'error',
+                $e->getMessage(),
+                $originalFilename,
+                null,
+                null,
+                ['original_filename' => $originalFilename],
+                'admin'
+            );
+
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -345,6 +435,20 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 } catch (Throwable $innerException) {
                     // Keep the AJAX response valid even if updating the import status fails.
                 }
+            }
+
+            if ($idImport <= 0) {
+                $this->getAuditLogService()->record(
+                    'import.run_request_failed',
+                    'import',
+                    'error',
+                    $e->getMessage(),
+                    null,
+                    null,
+                    null,
+                    [],
+                    'admin'
+                );
             }
 
             die(json_encode([
@@ -412,6 +516,18 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 }
             }
 
+            $this->getAuditLogService()->record(
+                'file.import_failed',
+                'file',
+                'error',
+                $e->getMessage(),
+                $storedFilename !== '' ? $storedFilename : null,
+                null,
+                null,
+                ['id_import' => $idImport > 0 ? $idImport : null],
+                'admin'
+            );
+
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -439,11 +555,41 @@ class AdminB2BPriceImportController extends ModuleAdminController
 
             $repository->deleteImport($idImport);
 
+            $this->getAuditLogService()->record(
+                'import.deleted',
+                'import',
+                'success',
+                'Import deleted. The stored CSV file was kept.',
+                (string) $idImport,
+                [
+                    'status' => $import['status'] ?? null,
+                    'filename' => $import['original_filename'] ?? null,
+                    'total_rows' => (int) ($import['total_rows'] ?? 0),
+                    'success_rows' => (int) ($import['success_rows'] ?? 0),
+                    'failed_rows' => (int) ($import['failed_rows'] ?? 0),
+                ],
+                null,
+                [],
+                'admin'
+            );
+
             die(json_encode([
                 'success' => true,
                 'message' => 'Import deleted. The stored CSV file was kept.',
             ]));
         } catch (Throwable $e) {
+            $this->getAuditLogService()->record(
+                'import.delete_failed',
+                'import',
+                'error',
+                $e->getMessage(),
+                $idImport > 0 ? (string) $idImport : null,
+                null,
+                null,
+                [],
+                'admin'
+            );
+
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -472,6 +618,24 @@ class AdminB2BPriceImportController extends ModuleAdminController
 
             $storage->deleteStoredFile($fileData->filePath);
 
+            $this->getAuditLogService()->record(
+                'file.deleted',
+                'file',
+                'success',
+                'Stored CSV file deleted.',
+                $storedFilename,
+                [
+                    'stored_filename' => $storedFilename,
+                    'file_size' => $fileData->fileSize,
+                    'file_hash' => $fileData->fileHash,
+                ],
+                null,
+                [
+                    'id_import' => is_array($import) ? (int) $import['id_b2b_import'] : null,
+                ],
+                'admin'
+            );
+
             die(json_encode([
                 'success' => true,
                 'message' => is_array($import)
@@ -481,6 +645,18 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 'id_import' => is_array($import) ? (int) $import['id_b2b_import'] : null,
             ]));
         } catch (Throwable $e) {
+            $this->getAuditLogService()->record(
+                'file.delete_failed',
+                'file',
+                'error',
+                $e->getMessage(),
+                $storedFilename !== '' ? $storedFilename : null,
+                null,
+                null,
+                [],
+                'admin'
+            );
+
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -496,8 +672,21 @@ class AdminB2BPriceImportController extends ModuleAdminController
         $idManufacturer = (int) Tools::getValue('id_manufacturer');
         $idGroup = (int) Tools::getValue('id_group');
         $rawValue = trim((string) Tools::getValue('discount_percent'));
+        $entityId = $idCategory . ':' . $idManufacturer . ':' . $idGroup;
 
         if ($idCategory <= 0 || $idManufacturer <= 0 || $idGroup <= 0) {
+            $this->getAuditLogService()->record(
+                'discount_rule.save_failed',
+                'discount_rule',
+                'error',
+                'Invalid category, brand or group.',
+                $entityId,
+                null,
+                null,
+                [],
+                'admin'
+            );
+
             die(json_encode([
                 'success' => false,
                 'message' => 'Invalid category, brand or group.',
@@ -505,12 +694,37 @@ class AdminB2BPriceImportController extends ModuleAdminController
         }
 
         try {
+            $existingRule = Db::getInstance()->getRow(
+                'SELECT *
+                 FROM `' . _DB_PREFIX_ . 'b2b_discount_rule`
+                 WHERE id_category = ' . (int) $idCategory . '
+                   AND id_manufacturer = ' . (int) $idManufacturer . '
+                   AND id_group = ' . (int) $idGroup
+            );
+            $existingRule = is_array($existingRule) ? $existingRule : null;
+
             if ($rawValue === '') {
-                Db::getInstance()->delete(
+                $deleted = Db::getInstance()->delete(
                     'b2b_discount_rule',
                     'id_category = ' . (int) $idCategory .
                     ' AND id_manufacturer = ' . (int) $idManufacturer .
                     ' AND id_group = ' . (int) $idGroup
+                );
+
+                if ($existingRule !== null && !$deleted) {
+                    throw new RuntimeException('Cannot remove discount rule.');
+                }
+
+                $this->getAuditLogService()->record(
+                    'discount_rule.deleted',
+                    'discount_rule',
+                    'success',
+                    $existingRule !== null ? 'Discount rule removed.' : 'Discount rule was already absent.',
+                    $entityId,
+                    $existingRule,
+                    null,
+                    [],
+                    'admin'
                 );
 
                 die(json_encode([
@@ -523,19 +737,25 @@ class AdminB2BPriceImportController extends ModuleAdminController
             $discountPercent = (float) str_replace(',', '.', $rawValue);
 
             if ($discountPercent < 0 || $discountPercent > 100) {
+                $this->getAuditLogService()->record(
+                    'discount_rule.save_failed',
+                    'discount_rule',
+                    'error',
+                    'Discount must be between 0 and 100.',
+                    $entityId,
+                    $existingRule,
+                    null,
+                    ['submitted_value' => $rawValue],
+                    'admin'
+                );
+
                 die(json_encode([
                     'success' => false,
                     'message' => 'Discount must be between 0 and 100.',
                 ]));
             }
 
-            $existingId = (int) Db::getInstance()->getValue(
-                'SELECT id_b2b_discount_rule
-                 FROM `' . _DB_PREFIX_ . 'b2b_discount_rule`
-                 WHERE id_category = ' . (int) $idCategory . '
-                   AND id_manufacturer = ' . (int) $idManufacturer . '
-                   AND id_group = ' . (int) $idGroup
-            );
+            $existingId = (int) ($existingRule['id_b2b_discount_rule'] ?? 0);
 
             $data = [
                 'id_category' => $idCategory,
@@ -547,7 +767,7 @@ class AdminB2BPriceImportController extends ModuleAdminController
             ];
 
             if ($existingId > 0) {
-                Db::getInstance()->update(
+                $saved = Db::getInstance()->update(
                     'b2b_discount_rule',
                     $data,
                     'id_b2b_discount_rule = ' . (int) $existingId
@@ -555,8 +775,32 @@ class AdminB2BPriceImportController extends ModuleAdminController
             } else {
                 $data['date_add'] = date('Y-m-d H:i:s');
 
-                Db::getInstance()->insert('b2b_discount_rule', $data);
+                $saved = Db::getInstance()->insert('b2b_discount_rule', $data);
             }
+
+            if (!$saved) {
+                throw new RuntimeException('Cannot save discount rule.');
+            }
+
+            $savedRule = Db::getInstance()->getRow(
+                'SELECT *
+                 FROM `' . _DB_PREFIX_ . 'b2b_discount_rule`
+                 WHERE id_category = ' . (int) $idCategory . '
+                   AND id_manufacturer = ' . (int) $idManufacturer . '
+                   AND id_group = ' . (int) $idGroup
+            );
+
+            $this->getAuditLogService()->record(
+                $existingId > 0 ? 'discount_rule.updated' : 'discount_rule.created',
+                'discount_rule',
+                'success',
+                $existingId > 0 ? 'Discount rule updated.' : 'Discount rule created.',
+                $entityId,
+                $existingRule,
+                is_array($savedRule) ? $savedRule : $data,
+                [],
+                'admin'
+            );
 
             die(json_encode([
                 'success' => true,
@@ -564,6 +808,18 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 'value' => number_format($discountPercent, 2, '.', ''),
             ]));
         } catch (Throwable $e) {
+            $this->getAuditLogService()->record(
+                'discount_rule.save_failed',
+                'discount_rule',
+                'error',
+                $e->getMessage(),
+                $entityId,
+                null,
+                null,
+                ['submitted_value' => $rawValue],
+                'admin'
+            );
+
             die(json_encode([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -579,6 +835,278 @@ class AdminB2BPriceImportController extends ModuleAdminController
     private function getImportRepository(): ImportRepository
     {
         return new ImportRepository();
+    }
+
+    private function getAuditLogService(): AuditLogService
+    {
+        return new AuditLogService();
+    }
+
+    private function buildLogsViewData(string $baseUrl): array
+    {
+        $filters = $this->resolveAuditLogFilters();
+        $pageSize = (int) Tools::getValue('logs_per_page', self::DEFAULT_LOG_PAGE_SIZE);
+
+        if (!in_array($pageSize, self::LOG_PAGE_SIZES, true)) {
+            $pageSize = self::DEFAULT_LOG_PAGE_SIZE;
+        }
+
+        $data = [
+            'logs' => [],
+            'logsError' => null,
+            'logFilters' => $filters,
+            'logActions' => [],
+            'logEntityTypes' => [],
+            'logResults' => [],
+            'logChannels' => [],
+            'logsResetUrl' => $baseUrl . '&section=logs',
+            'logsFormAction' => $this->getLogsFormAction($baseUrl),
+            'logsFormHiddenFields' => $this->getLogsFormHiddenFields($baseUrl),
+            'logsPagination' => $this->buildLogsPagination(
+                $baseUrl,
+                1,
+                $pageSize,
+                0,
+                1,
+                $filters
+            ),
+        ];
+
+        try {
+            $this->getAuditLogService()->purgeExpired();
+            $repository = new AuditLogRepository();
+            $totalItems = $repository->count($filters);
+            $totalPages = max(1, (int) ceil($totalItems / $pageSize));
+            $currentPage = max(1, (int) Tools::getValue('logs_page', 1));
+            $currentPage = min($currentPage, $totalPages);
+            $offset = ($currentPage - 1) * $pageSize;
+
+            $data['logs'] = $this->formatAuditLogRows(
+                $repository->findPage($pageSize, $offset, $filters)
+            );
+            $data['logActions'] = $repository->getDistinctValues('action');
+            $data['logEntityTypes'] = $repository->getDistinctValues('entity_type');
+            $data['logResults'] = $repository->getDistinctValues('result');
+            $data['logChannels'] = $repository->getDistinctValues('channel');
+            $data['logsPagination'] = $this->buildLogsPagination(
+                $baseUrl,
+                $currentPage,
+                $pageSize,
+                $totalItems,
+                $totalPages,
+                $filters
+            );
+        } catch (Throwable $exception) {
+            $data['logsError'] = $exception->getMessage();
+        }
+
+        return $data;
+    }
+
+    private function getLogsFormAction(string $baseUrl): string
+    {
+        $parts = explode('?', $baseUrl, 2);
+
+        return $parts[0];
+    }
+
+    private function getLogsFormHiddenFields(string $baseUrl): array
+    {
+        $parts = explode('?', $baseUrl, 2);
+        $parameters = [];
+
+        if (isset($parts[1])) {
+            parse_str($parts[1], $parameters);
+        }
+
+        unset($parameters['section']);
+
+        $fields = [];
+
+        foreach ($parameters as $name => $value) {
+            if (is_scalar($value)) {
+                $fields[] = ['name' => (string) $name, 'value' => (string) $value];
+            }
+        }
+
+        return $fields;
+    }
+
+    private function resolveAuditLogFilters(): array
+    {
+        $filters = [];
+        $parameters = [
+            'date_from' => ['parameter' => 'logs_date_from', 'max_length' => 10],
+            'date_to' => ['parameter' => 'logs_date_to', 'max_length' => 10],
+            'entity_type' => ['parameter' => 'logs_entity_type', 'max_length' => 32],
+            'result' => ['parameter' => 'logs_result', 'max_length' => 16],
+            'channel' => ['parameter' => 'logs_channel', 'max_length' => 32],
+            'action' => ['parameter' => 'logs_action', 'max_length' => 96],
+            'actor' => ['parameter' => 'logs_actor', 'max_length' => 255],
+            'search' => ['parameter' => 'logs_search', 'max_length' => 255],
+        ];
+
+        foreach ($parameters as $filter => $definition) {
+            $value = Tools::getValue($definition['parameter'], '');
+            $value = is_string($value) ? trim($value) : '';
+            $filters[$filter] = substr($value, 0, (int) $definition['max_length']);
+        }
+
+        foreach (['date_from', 'date_to'] as $dateFilter) {
+            if (!$this->isAuditLogDate($filters[$dateFilter])) {
+                $filters[$dateFilter] = '';
+            }
+        }
+
+        return $filters;
+    }
+
+    private function formatAuditLogRows(array $rows): array
+    {
+        foreach ($rows as &$row) {
+            $row['before_display'] = $this->formatAuditLogJson($row['before_json'] ?? null);
+            $row['after_display'] = $this->formatAuditLogJson($row['after_json'] ?? null);
+            $row['context_display'] = $this->formatAuditLogJson($row['context_json'] ?? null);
+            $row['has_details'] = $row['before_display'] !== ''
+                || $row['after_display'] !== ''
+                || $row['context_display'] !== '';
+            $row['actor_display'] = trim((string) ($row['actor_name'] ?? ''));
+
+            if ($row['actor_display'] === '') {
+                $row['actor_display'] = ucfirst((string) ($row['actor_type'] ?? 'system'));
+            }
+
+            $row['result_class'] = match ((string) ($row['result'] ?? '')) {
+                'success' => 'label-success',
+                'warning' => 'label-warning',
+                'error' => 'label-danger',
+                default => 'label-default',
+            };
+        }
+        unset($row);
+
+        return $rows;
+    }
+
+    private function formatAuditLogJson($rawValue): string
+    {
+        $rawValue = trim((string) $rawValue);
+
+        if ($rawValue === '') {
+            return '';
+        }
+
+        $decoded = json_decode($rawValue, true);
+
+        if (!is_array($decoded)) {
+            return $rawValue;
+        }
+
+        $encoded = json_encode(
+            $decoded,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT
+        );
+
+        return is_string($encoded) ? $encoded : $rawValue;
+    }
+
+    private function buildLogsPagination(
+        string $baseUrl,
+        int $currentPage,
+        int $pageSize,
+        int $totalItems,
+        int $totalPages,
+        array $filters
+    ): array {
+        $pageSizeOptions = [];
+
+        foreach (self::LOG_PAGE_SIZES as $option) {
+            $pageSizeOptions[] = [
+                'value' => $option,
+                'is_current' => $option === $pageSize,
+                'url' => $this->buildLogsUrl($baseUrl, 1, $option, $filters),
+            ];
+        }
+
+        $pages = [];
+        $startPage = max(1, $currentPage - 2);
+        $endPage = min($totalPages, $currentPage + 2);
+
+        for ($page = $startPage; $page <= $endPage; $page++) {
+            $pages[] = [
+                'number' => $page,
+                'is_current' => $page === $currentPage,
+                'url' => $this->buildLogsUrl($baseUrl, $page, $pageSize, $filters),
+            ];
+        }
+
+        return [
+            'current_page' => $currentPage,
+            'page_size' => $pageSize,
+            'total_pages' => $totalPages,
+            'total_items' => $totalItems,
+            'first_item' => $totalItems > 0 ? (($currentPage - 1) * $pageSize) + 1 : 0,
+            'last_item' => min($currentPage * $pageSize, $totalItems),
+            'previous_url' => $currentPage > 1
+                ? $this->buildLogsUrl($baseUrl, $currentPage - 1, $pageSize, $filters)
+                : null,
+            'next_url' => $currentPage < $totalPages
+                ? $this->buildLogsUrl($baseUrl, $currentPage + 1, $pageSize, $filters)
+                : null,
+            'pages' => $pages,
+            'page_size_options' => $pageSizeOptions,
+        ];
+    }
+
+    private function buildLogsUrl(
+        string $baseUrl,
+        int $page,
+        int $pageSize,
+        array $filters
+    ): string {
+        $parameters = [
+            'section' => 'logs',
+            'logs_page' => max(1, $page),
+            'logs_per_page' => $pageSize,
+        ];
+        $filterParameters = [
+            'date_from' => 'logs_date_from',
+            'date_to' => 'logs_date_to',
+            'entity_type' => 'logs_entity_type',
+            'result' => 'logs_result',
+            'channel' => 'logs_channel',
+            'action' => 'logs_action',
+            'actor' => 'logs_actor',
+            'search' => 'logs_search',
+        ];
+
+        foreach ($filterParameters as $filter => $parameter) {
+            if (($filters[$filter] ?? '') !== '') {
+                $parameters[$parameter] = $filters[$filter];
+            }
+        }
+
+        return $baseUrl . '&' . http_build_query($parameters);
+    }
+
+    private function isAuditLogDate(string $value): bool
+    {
+        if ($value === '') {
+            return true;
+        }
+
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+
+        return $date !== false && $date->format('Y-m-d') === $value;
+    }
+
+    private function buildConfigAuditValue(string $key, $value): array
+    {
+        if ($key === B2BPriceImportConfig::IMPORT_API_KEY) {
+            return ['configured' => trim((string) $value) !== ''];
+        }
+
+        return ['value' => $value];
     }
 
     private function buildImportCliCommand(): string
