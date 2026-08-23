@@ -127,7 +127,20 @@ body.b2b-import-processing {
 }
 
 .b2b-import-item-actions {
-    min-width: 130px;
+    min-width: 52px;
+    text-align: center;
+}
+
+.b2b-import-item-action {
+    width: 32px;
+    height: 30px;
+    padding: 5px;
+    line-height: 18px;
+    text-align: center;
+}
+
+.b2b-import-item-action > i {
+    margin: 0;
 }
 
 .b2b-import-item-summary {
