@@ -273,7 +273,9 @@
                                 <td>{$item.product_name|escape:'html':'UTF-8'}</td>
                                 <td>
                                     {if !empty($item.product_url)}
-                                        <a href="{$item.product_url|escape:'html':'UTF-8'}">
+                                        <a href="{$item.product_url|escape:'html':'UTF-8'}"
+                                           target="_blank"
+                                           rel="noopener noreferrer">
                                             {$item.id_product|intval}
                                         </a>
                                     {else}
@@ -298,18 +300,28 @@
                                 <td class="text-nowrap b2b-import-item-actions">
                                     {if !empty($item.can_resolve_product)}
                                         <button type="button"
-                                                class="btn btn-primary btn-sm js-resolve-import-item"
+                                                class="btn btn-primary btn-sm b2b-import-item-action js-resolve-import-item"
                                                 data-id-import-item="{$item.id_b2b_import_item|intval}"
                                                 data-reference="{$item.reference|escape:'html':'UTF-8'}"
-                                                data-product-name="{$item.product_name|escape:'html':'UTF-8'}">
-                                            <i class="icon-plus"></i>
-                                            {l s='Add product' mod='b2bpriceimport'}
+                                                data-product-name="{$item.product_name|escape:'html':'UTF-8'}"
+                                                data-toggle="tooltip"
+                                                data-placement="top"
+                                                title="{l s='Add product' mod='b2bpriceimport'}"
+                                                aria-label="{l s='Add product' mod='b2bpriceimport'}">
+                                            <i class="icon-plus" aria-hidden="true"></i>
+                                            <span class="sr-only">{l s='Add product' mod='b2bpriceimport'}</span>
                                         </button>
                                     {elseif !empty($item.product_url)}
-                                        <a class="btn btn-default btn-sm"
-                                           href="{$item.product_url|escape:'html':'UTF-8'}">
-                                            <i class="icon-external-link"></i>
-                                            {l s='Open product' mod='b2bpriceimport'}
+                                        <a class="btn btn-default btn-sm b2b-import-item-action"
+                                           href="{$item.product_url|escape:'html':'UTF-8'}"
+                                           target="_blank"
+                                           rel="noopener noreferrer"
+                                           data-toggle="tooltip"
+                                           data-placement="top"
+                                           title="{l s='Open product' mod='b2bpriceimport'}"
+                                           aria-label="{l s='Open product' mod='b2bpriceimport'}">
+                                            <i class="icon-external-link" aria-hidden="true"></i>
+                                            <span class="sr-only">{l s='Open product' mod='b2bpriceimport'}</span>
                                         </a>
                                     {else}
                                         &mdash;
@@ -504,6 +516,12 @@
             var skipButton = document.getElementById('b2b-resolution-skip');
             var searchTimer = null;
             var searchRequest = 0;
+
+            if (window.jQuery && window.jQuery.fn.tooltip) {
+                window.jQuery('.b2b-import-item-action[data-toggle="tooltip"]').tooltip({
+                    container: 'body'
+                });
+            }
 
             function applyImportItemsSearch(input) {
                 var url = input.getAttribute('data-base-url');
