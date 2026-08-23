@@ -18,6 +18,7 @@ final class B2BPriceImportConfig
     public const IMPORT_SCAN_LIMIT = 'B2BPRICEIMPORT_IMPORT_SCAN_LIMIT';
     public const IMPORT_RUN_TYPE = 'B2BPRICEIMPORT_IMPORT_RUN_TYPE';
     public const IMPORT_BATCH_LIMIT = 'B2BPRICEIMPORT_IMPORT_BATCH_LIMIT';
+    public const IMPORT_AUTO_CREATE_UNKNOWN_PRODUCTS = 'B2BPRICEIMPORT_IMPORT_AUTO_CREATE_UNKNOWN_PRODUCTS';
     public const IMPORT_TIME_LIMIT = 'B2BPRICEIMPORT_IMPORT_TIME_LIMIT';
     public const IMPORT_LOCK_TTL = 'B2BPRICEIMPORT_IMPORT_LOCK_TTL';
     public const IMPORT_OUTPUT_FORMAT = 'B2BPRICEIMPORT_IMPORT_OUTPUT_FORMAT';
@@ -81,7 +82,7 @@ final class B2BPriceImportConfig
                 'key' => self::GROUP_IMPORT_PROCESSING,
                 'section' => self::SECTION_IMPORT,
                 'label' => 'Import processing',
-                'description' => 'Controls how many import rows are processed in one batch.',
+                'description' => 'Controls import batches and how unknown products are handled.',
                 'icon' => 'icon-tasks',
                 'collapsed' => false,
                 'order' => 20,
@@ -136,6 +137,7 @@ final class B2BPriceImportConfig
             $this->importScanLimit(),
             $this->importRunType(),
             $this->importBatchLimit(),
+            $this->importAutoCreateUnknownProducts(),
             $this->importTimeLimit(),
             $this->importLockTtl(),
             $this->importOutputFormat(),
@@ -382,6 +384,24 @@ final class B2BPriceImportConfig
             'max' => 5000,
             'label' => 'Import batch limit',
             'description' => 'Default row limit for one CLI processing batch when --limit is omitted.',
+        ];
+    }
+
+    public function importAutoCreateUnknownProducts(): array
+    {
+        return [
+            'key' => self::IMPORT_AUTO_CREATE_UNKNOWN_PRODUCTS,
+            'section' => self::SECTION_IMPORT,
+            'group' => self::GROUP_IMPORT_PROCESSING,
+            'type' => self::TYPE_SELECT,
+            'storage' => self::STORAGE_SCALAR,
+            'default' => '0',
+            'label' => 'Automatically create unknown products as drafts',
+            'description' => 'Create an inactive product from the imported reference, name, and price when no matching product exists. The CSV active value is not applied to the draft. Disabled by default.',
+            'options' => [
+                ['value' => '1', 'label' => 'Yes'],
+                ['value' => '0', 'label' => 'No'],
+            ],
         ];
     }
 

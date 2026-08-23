@@ -216,6 +216,14 @@ final class B2BPriceImportConfigRepository
     /**
      * @throws Exception
      */
+    public function shouldAutoCreateUnknownProducts(): bool
+    {
+        return (string) $this->get(B2BPriceImportConfig::IMPORT_AUTO_CREATE_UNKNOWN_PRODUCTS) === '1';
+    }
+
+    /**
+     * @throws Exception
+     */
     public function getImportTimeLimit(): int
     {
         return (int) $this->get(B2BPriceImportConfig::IMPORT_TIME_LIMIT);

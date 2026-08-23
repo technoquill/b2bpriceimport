@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace B2B\PriceImport\Service;
 
 use B2B\PriceImport\Constant\ImportStatus;
+use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
 use B2B\PriceImport\Repository\ImportRepository;
+use B2B\PriceImport\Repository\ProductMappingRepository;
 use League\Csv\Reader;
 use Product;
 use RuntimeException;
@@ -14,7 +16,11 @@ use Throwable;
 final class PriceImportParser
 {
     public function __construct(
-        private readonly ?ImportRepository $repository = null
+        private readonly ?ImportRepository $repository = null,
+        private readonly ?ProductMappingRepository $productMappingRepository = null,
+        private readonly ?B2BPriceImportConfigRepository $configRepository = null,
+        private readonly ?ImportedProductCreatorService $productCreator = null,
+        private readonly ?AuditLogService $auditLogger = null
     ) {
     }
 
@@ -43,9 +49,15 @@ final class PriceImportParser
         $this->assertHeader($header);
         $repository->update($idImport, ['header_json' => json_encode($header, JSON_UNESCAPED_UNICODE)]);
 
+        $mappingRepository = $this->productMappingRepository ?: new ProductMappingRepository();
+        $autoCreateUnknownProducts = ($this->configRepository ?: new B2BPriceImportConfigRepository())
+            ->shouldAutoCreateUnknownProducts();
         $parsed = 0;
         $valid = 0;
+        $warnings = 0;
         $failed = 0;
+        $created = 0;
+        $autoCreatedProductIds = [];
 
         foreach ($reader->getRecords() as $offset => $record) {
             $rowNumber = (int) $offset + 2;
@@ -53,13 +65,102 @@ final class PriceImportParser
 
             try {
                 $normalized = $this->normalize($record);
-                $idProduct = (int) Product::getIdByReference($normalized['reference']);
+                $priceUah = round($normalized['price'] * $normalized['currency_rate'], 6);
+                $referenceKey = 'reference:' . strtolower($normalized['reference']);
+                $autoCreatedInThisImport = isset($autoCreatedProductIds[$referenceKey]);
+                $idProduct = $autoCreatedInThisImport
+                    ? $autoCreatedProductIds[$referenceKey]
+                    : $this->resolveProductId($normalized['reference'], $mappingRepository);
 
                 if ($idProduct <= 0) {
-                    throw new RuntimeException('Product not found by reference: ' . $normalized['reference']);
-                }
+                    $message = 'Product not found by reference: ' . $normalized['reference'];
+                    $idItem = $repository->addItem(
+                        $idImport,
+                        $rowNumber,
+                        $normalized['reference'],
+                        $normalized,
+                        'unmatched',
+                        'PRODUCT_NOT_FOUND',
+                        $message
+                    );
 
-                $priceUah = round($normalized['price'] * $normalized['currency_rate'], 6);
+                    $repository->addPriceStaging([
+                        'id_b2b_import' => $idImport,
+                        'id_b2b_import_item' => $idItem,
+                        'reference' => $normalized['reference'],
+                        'product_name' => $normalized['name'],
+                        'id_product' => null,
+                        'source_price' => $normalized['price'],
+                        'currency_code' => $normalized['currency'],
+                        'currency_rate' => $normalized['currency_rate'],
+                        'price_uah' => $priceUah,
+                        'active' => $normalized['active'],
+                        'validation_status' => 'unmatched',
+                        'processing_status' => 'waiting_product',
+                        'error_code' => 'PRODUCT_NOT_FOUND',
+                        'error_message' => $message,
+                    ]);
+
+                    if (!$autoCreateUnknownProducts) {
+                        $warnings++;
+
+                        continue;
+                    }
+
+                    try {
+                        $createdProduct = ($this->productCreator ?: new ImportedProductCreatorService())
+                            ->createInactive(
+                                $normalized['reference'],
+                                $normalized['name'],
+                                $priceUah
+                            );
+                        $idProduct = $createdProduct['id_product'];
+                        $mappingRepository->save($normalized['reference'], $idProduct);
+                        $repository->markImportItemCreated($idItem, $idProduct);
+                        $autoCreatedProductIds[$referenceKey] = $idProduct;
+                        $this->getAuditLogger()->record(
+                            'product.created_from_import',
+                            'product',
+                            'success',
+                            'Inactive product automatically created from an unmatched import position.',
+                            (string) $idProduct,
+                            null,
+                            [
+                                'reference' => $normalized['reference'],
+                                'name' => $createdProduct['name'],
+                                'price' => $priceUah,
+                                'active' => 0,
+                            ],
+                            [
+                                'import_id' => $idImport,
+                                'id_import_item' => $idItem,
+                                'creation_mode' => 'automatic',
+                            ]
+                        );
+
+                        $valid++;
+                        $created++;
+                    } catch (Throwable $creationException) {
+                        $warnings++;
+                        $this->getAuditLogger()->record(
+                            'product.auto_create_failed',
+                            'import',
+                            'error',
+                            'Automatic draft product creation failed; the import position remains unmatched.',
+                            (string) $idImport,
+                            null,
+                            null,
+                            [
+                                'id_import_item' => $idItem,
+                                'reference' => $normalized['reference'],
+                                'creation_mode' => 'automatic',
+                                'error' => $creationException->getMessage(),
+                            ]
+                        );
+                    }
+
+                    continue;
+                }
 
                 $idItem = $repository->addItem($idImport, $rowNumber, $normalized['reference'], $normalized, 'pending');
 
@@ -77,6 +178,10 @@ final class PriceImportParser
                     'validation_status' => 'valid',
                     'processing_status' => 'pending',
                 ]);
+
+                if ($autoCreatedInThisImport) {
+                    $repository->markImportItemCreated($idItem, $idProduct);
+                }
 
                 $valid++;
             } catch (Throwable $exception) {
@@ -116,16 +221,36 @@ final class PriceImportParser
             }
         }
 
-        $repository->update($idImport, [
-            'total_rows' => $parsed,
-            'parsed_rows' => $parsed,
-            'validated_rows' => $valid,
-            'failed_rows' => $failed,
-            'last_row_number' => $parsed + 1,
-        ]);
+        $repository->update($idImport, ['last_row_number' => $parsed + 1]);
+        $repository->refreshStats($idImport);
         $repository->setStatus($idImport, ImportStatus::PARSED);
 
-        return ['parsed' => $parsed, 'valid' => $valid, 'failed' => $failed];
+        return [
+            'parsed' => $parsed,
+            'valid' => $valid,
+            'created' => $created,
+            'warnings' => $warnings,
+            'failed' => $failed,
+        ];
+    }
+
+    private function resolveProductId(
+        string $reference,
+        ProductMappingRepository $mappingRepository
+    ): int
+    {
+        $idProduct = (int) Product::getIdByReference($reference);
+
+        if ($idProduct > 0) {
+            return $idProduct;
+        }
+
+        return (int) ($mappingRepository->findProductId($reference) ?? 0);
+    }
+
+    private function getAuditLogger(): AuditLogService
+    {
+        return $this->auditLogger ?: new AuditLogService();
     }
 
     private function detectDelimiter(string $filePath): string

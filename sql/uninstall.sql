@@ -2,6 +2,7 @@
 DROP TABLE IF EXISTS `PREFIX_b2b_discount_rule`;
 DROP TABLE IF EXISTS `PREFIX_b2b_audit_log`;
 DROP TABLE IF EXISTS `PREFIX_b2b_import_lock`;
+DROP TABLE IF EXISTS `PREFIX_b2b_import_product_mapping`;
 DROP TABLE IF EXISTS `PREFIX_b2b_import_price_staging`;
 DROP TABLE IF EXISTS `PREFIX_b2b_import_item`;
 DROP TABLE IF EXISTS `PREFIX_b2b_import_job`;

@@ -2,7 +2,7 @@
 <module>
     <name>b2bpriceimport</name>
     <displayName><![CDATA[B2B Price Import]]></displayName>
-    <version><![CDATA[0.1.2]]></version>
+    <version><![CDATA[0.2.0]]></version>
     <description><![CDATA[B2B price import and discount matrix module.]]></description>
     <author><![CDATA[B2B]]></author>
     <tab><![CDATA[administration]]></tab>
