@@ -283,6 +283,8 @@ final class RunPriceImportCommand extends Command
         if (is_array($summary['parse'])) {
             $output->writeln('Parse parsed: ' . (int) ($summary['parse']['parsed'] ?? 0));
             $output->writeln('Parse valid: ' . (int) ($summary['parse']['valid'] ?? 0));
+            $output->writeln('Parse created drafts: ' . (int) ($summary['parse']['created'] ?? 0));
+            $output->writeln('Parse warnings: ' . (int) ($summary['parse']['warnings'] ?? 0));
             $output->writeln('Parse failed: ' . (int) ($summary['parse']['failed'] ?? 0));
         }
 

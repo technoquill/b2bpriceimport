@@ -173,6 +173,25 @@ CREATE TABLE IF NOT EXISTS `PREFIX_b2b_import_price_staging` (
     ) ENGINE=InnoDB DEFAULT CHARSET=DB_CHARSET COLLATE=DB_COLLATION;
 
 
+/**
+  * b2b_import_product_mapping
+ */
+CREATE TABLE IF NOT EXISTS `PREFIX_b2b_import_product_mapping` (
+
+        `id_b2b_import_product_mapping` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `reference` VARCHAR(128) NOT NULL,
+        `id_product` INT UNSIGNED NOT NULL,
+        `created_by` INT UNSIGNED DEFAULT NULL,
+        `date_add` DATETIME NOT NULL,
+        `date_upd` DATETIME NOT NULL,
+
+    PRIMARY KEY (`id_b2b_import_product_mapping`),
+    UNIQUE KEY `reference` (`reference`),
+    KEY `id_product` (`id_product`)
+
+    ) ENGINE=InnoDB DEFAULT CHARSET=DB_CHARSET COLLATE=DB_COLLATION;
+
+
 
 /**
   * b2b_import_lock
@@ -221,4 +240,3 @@ CREATE TABLE IF NOT EXISTS `PREFIX_b2b_audit_log` (
     KEY `actor_id` (`actor_id`)
 
     ) ENGINE=InnoDB DEFAULT CHARSET=DB_CHARSET COLLATE=DB_COLLATION;
-

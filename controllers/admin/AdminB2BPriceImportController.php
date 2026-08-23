@@ -16,6 +16,7 @@ use B2B\PriceImport\Repository\B2BPriceImportConfigRepository;
 use B2B\PriceImport\Repository\ImportRepository;
 use B2B\PriceImport\Service\AuditLogService;
 use B2B\PriceImport\Service\ImportFileStorageService;
+use B2B\PriceImport\Service\ImportProductResolverService;
 use B2B\PriceImport\Service\PriceImportRunService;
 
 class AdminB2BPriceImportController extends ModuleAdminController
@@ -140,12 +141,14 @@ class AdminB2BPriceImportController extends ModuleAdminController
                 $currentPage = min($currentPage, $totalPages);
                 $offset = ($currentPage - 1) * $pageSize;
 
-                $assign['importItems'] = $repository->getImportItems(
-                    $idImport,
-                    $pageSize,
-                    $offset,
-                    $selectedFilters,
-                    $searchTerms
+                $assign['importItems'] = $this->decorateImportItems(
+                    $repository->getImportItems(
+                        $idImport,
+                        $pageSize,
+                        $offset,
+                        $selectedFilters,
+                        $searchTerms
+                    )
                 );
                 $assign['importItemsPagination'] = $this->buildImportItemsPagination(
                     $baseUrl,
@@ -664,6 +667,136 @@ class AdminB2BPriceImportController extends ModuleAdminController
         }
     }
 
+    public function ajaxProcessSearchImportProducts()
+    {
+        header('Content-Type: application/json');
+
+        try {
+            $search = trim((string) Tools::getValue('query'));
+
+            if (Tools::strlen($search) < 2) {
+                die(json_encode([
+                    'success' => true,
+                    'products' => [],
+                ]));
+            }
+
+            $search = Tools::substr($search, 0, 100);
+            $escapedSearch = pSQL($search);
+            $idLanguage = (int) $this->context->language->id;
+            $idShop = (int) $this->context->shop->id;
+            $conditions = [
+                "p.reference LIKE '%" . $escapedSearch . "%'",
+                "pl.name LIKE '%" . $escapedSearch . "%'",
+            ];
+
+            if (ctype_digit($search)) {
+                $conditions[] = 'p.id_product = ' . (int) $search;
+            }
+
+            $query = new DbQuery();
+            $query->select('p.id_product, p.reference, pl.name, ps.active');
+            $query->from('product', 'p');
+            $query->innerJoin(
+                'product_shop',
+                'ps',
+                'ps.id_product = p.id_product AND ps.id_shop = ' . $idShop
+            );
+            $query->leftJoin(
+                'product_lang',
+                'pl',
+                'pl.id_product = p.id_product'
+                . ' AND pl.id_lang = ' . $idLanguage
+                . ' AND pl.id_shop = ' . $idShop
+            );
+            $query->where('(' . implode(' OR ', $conditions) . ')');
+            $query->orderBy(
+                "CASE WHEN p.reference = '" . $escapedSearch . "' THEN 0"
+                . (ctype_digit($search) ? ' WHEN p.id_product = ' . (int) $search . ' THEN 1' : '')
+                . ' ELSE 2 END ASC, pl.name ASC'
+            );
+            $query->limit(20);
+
+            $rows = Db::getInstance()->executeS($query);
+            $products = [];
+
+            foreach (is_array($rows) ? $rows : [] as $row) {
+                $idProduct = (int) $row['id_product'];
+                $products[] = [
+                    'id_product' => $idProduct,
+                    'reference' => (string) ($row['reference'] ?? ''),
+                    'name' => (string) ($row['name'] ?? ''),
+                    'active' => (int) ($row['active'] ?? 0),
+                    'url' => $this->buildProductAdminUrl($idProduct),
+                ];
+            }
+
+            die(json_encode([
+                'success' => true,
+                'products' => $products,
+            ], JSON_UNESCAPED_UNICODE));
+        } catch (Throwable $e) {
+            die(json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE));
+        }
+    }
+
+    public function ajaxProcessResolveImportItem()
+    {
+        header('Content-Type: application/json');
+
+        $idImport = (int) Tools::getValue('id_import');
+        $idImportItem = (int) Tools::getValue('id_import_item');
+        $action = trim((string) Tools::getValue('resolution_action'));
+        $idProduct = (int) Tools::getValue('id_product');
+
+        try {
+            if ($idImport <= 0 || $idImportItem <= 0) {
+                throw new Exception('Invalid import position.');
+            }
+
+            $employeeId = isset($this->context->employee->id)
+                ? (int) $this->context->employee->id
+                : null;
+            $result = (new ImportProductResolverService())->resolve(
+                $idImport,
+                $idImportItem,
+                $action,
+                $idProduct > 0 ? $idProduct : null,
+                $employeeId
+            );
+
+            if (!empty($result['id_product'])) {
+                $result['product_url'] = $this->buildProductAdminUrl((int) $result['id_product']);
+            }
+
+            die(json_encode(array_merge(['success' => true], $result), JSON_UNESCAPED_UNICODE));
+        } catch (Throwable $e) {
+            $this->getAuditLogService()->record(
+                'import_item.resolve_failed',
+                'import',
+                'error',
+                $e->getMessage(),
+                $idImport > 0 ? (string) $idImport : null,
+                null,
+                null,
+                [
+                    'id_import_item' => $idImportItem > 0 ? $idImportItem : null,
+                    'resolution_action' => $action,
+                    'id_product' => $idProduct > 0 ? $idProduct : null,
+                ],
+                'admin'
+            );
+
+            die(json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE));
+        }
+    }
+
     public function ajaxProcessSaveDiscountRule()
     {
         header('Content-Type: application/json');
@@ -840,6 +973,40 @@ class AdminB2BPriceImportController extends ModuleAdminController
     private function getAuditLogService(): AuditLogService
     {
         return new AuditLogService();
+    }
+
+    private function decorateImportItems(array $items): array
+    {
+        foreach ($items as &$item) {
+            $idProduct = (int) ($item['id_product'] ?? 0);
+            $errorCode = (string) (($item['staging_error_code'] ?? '') ?: ($item['error_code'] ?? ''));
+            $item['can_resolve_product'] = $idProduct <= 0
+                && (string) ($item['status'] ?? '') === 'unmatched'
+                && $errorCode === 'PRODUCT_NOT_FOUND';
+            $item['product_url'] = $idProduct > 0
+                ? $this->buildProductAdminUrl($idProduct)
+                : '';
+        }
+        unset($item);
+
+        return $items;
+    }
+
+    private function buildProductAdminUrl(int $idProduct): string
+    {
+        if ($idProduct <= 0) {
+            return '';
+        }
+
+        return $this->context->link->getAdminLink(
+            'AdminProducts',
+            true,
+            [
+                'id_product' => $idProduct,
+                'updateproduct' => 1,
+            ],
+            []
+        );
     }
 
     private function buildLogsViewData(string $baseUrl): array

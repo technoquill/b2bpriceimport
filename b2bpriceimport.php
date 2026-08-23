@@ -14,7 +14,7 @@ class B2bPriceImport extends Module
     {
         $this->name = 'b2bpriceimport';
         $this->tab = 'administration';
-        $this->version = '0.1.2';
+        $this->version = '0.2.0';
         $this->author = 'B2B';
         $this->need_instance = 0;
         $this->bootstrap = true;

@@ -147,15 +147,31 @@ final class PriceImportRunService
 
             $failedRows = (int) ($summary['parse']['failed'] ?? 0)
                 + (int) ($summary['process']['failed'] ?? 0);
-            $auditResult = $failedRows > 0 ? 'warning' : 'success';
+            $unmatchedRows = (int) ($summary['parse']['warnings'] ?? 0);
+            $createdDrafts = (int) ($summary['parse']['created'] ?? 0);
+            $auditResult = ($failedRows + $unmatchedRows) > 0 ? 'warning' : 'success';
+
+            if ($failedRows > 0 || $unmatchedRows > 0) {
+                $completionMessage = sprintf(
+                    'Import completed with %d failed row(s), %d unmatched product(s), and %d draft product(s) automatically created.',
+                    $failedRows,
+                    $unmatchedRows,
+                    $createdDrafts
+                );
+            } elseif ($createdDrafts > 0) {
+                $completionMessage = sprintf(
+                    'Import completed successfully; %d draft product(s) automatically created.',
+                    $createdDrafts
+                );
+            } else {
+                $completionMessage = 'Import completed successfully.';
+            }
 
             $auditLogger->record(
                 'import.completed',
                 'import',
                 $auditResult,
-                $failedRows > 0
-                    ? sprintf('Import completed with %d failed row(s).', $failedRows)
-                    : 'Import completed successfully.',
+                $completionMessage,
                 (string) $idImport,
                 null,
                 [

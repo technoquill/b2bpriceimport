@@ -268,6 +268,45 @@ final class ImportRepository
         return is_array($rows) ? $rows : [];
     }
 
+    public function findImportItemWithStaging(int $idImport, int $idImportItem): ?array
+    {
+        $query = new DbQuery();
+        $query->select('
+            ii.id_b2b_import_item,
+            ii.id_b2b_import,
+            ii.row_number,
+            ii.reference,
+            ii.payload_json,
+            ii.status,
+            ii.error_code,
+            ii.error_message,
+            ps.id_b2b_import_price_staging,
+            ps.product_name,
+            ps.id_product,
+            ps.source_price,
+            ps.currency_code,
+            ps.currency_rate,
+            ps.price_uah,
+            ps.active,
+            ps.validation_status,
+            ps.processing_status,
+            ps.error_code AS staging_error_code,
+            ps.error_message AS staging_error_message
+        ');
+        $query->from('b2b_import_item', 'ii');
+        $query->innerJoin(
+            'b2b_import_price_staging',
+            'ps',
+            'ps.id_b2b_import_item = ii.id_b2b_import_item'
+        );
+        $query->where('ii.id_b2b_import = ' . $idImport);
+        $query->where('ii.id_b2b_import_item = ' . $idImportItem);
+
+        $row = Db::getInstance()->getRow($query);
+
+        return is_array($row) ? $row : null;
+    }
+
     private function applyImportItemFilters(DbQuery $query, array $filters): void
     {
         $filterExpressions = [
@@ -430,6 +469,131 @@ final class ImportRepository
         return is_array($rows) ? $rows : [];
     }
 
+    public function getPendingStagingRowForItem(int $idImport, int $idImportItem): ?array
+    {
+        $query = new DbQuery();
+        $query->select('*');
+        $query->from('b2b_import_price_staging');
+        $query->where('id_b2b_import = ' . $idImport);
+        $query->where('id_b2b_import_item = ' . $idImportItem);
+        $query->where("validation_status = 'valid'");
+        $query->where("processing_status = 'pending'");
+
+        $row = Db::getInstance()->getRow($query);
+
+        return is_array($row) ? $row : null;
+    }
+
+    public function prepareImportItemForProcessing(int $idImportItem, int $idProduct): void
+    {
+        $now = date('Y-m-d H:i:s');
+
+        $stagingSaved = Db::getInstance()->update(
+            'b2b_import_price_staging',
+            [
+                'id_product' => $idProduct,
+                'validation_status' => 'valid',
+                'processing_status' => 'pending',
+                'error_code' => null,
+                'error_message' => null,
+                'date_upd' => $now,
+            ],
+            'id_b2b_import_item = ' . $idImportItem,
+            0,
+            true
+        );
+        $itemSaved = Db::getInstance()->update(
+            'b2b_import_item',
+            [
+                'status' => 'pending',
+                'error_code' => null,
+                'error_message' => null,
+                'processed_at' => null,
+                'date_upd' => $now,
+            ],
+            'id_b2b_import_item = ' . $idImportItem,
+            0,
+            true
+        );
+
+        if (!$stagingSaved || !$itemSaved) {
+            throw new RuntimeException('Cannot prepare import position for processing.');
+        }
+    }
+
+    public function markImportItemCreated(int $idImportItem, int $idProduct): void
+    {
+        $now = date('Y-m-d H:i:s');
+
+        $stagingSaved = Db::getInstance()->update(
+            'b2b_import_price_staging',
+            [
+                'id_product' => $idProduct,
+                'validation_status' => 'valid',
+                'processing_status' => 'created',
+                'error_code' => null,
+                'error_message' => null,
+                'date_upd' => $now,
+            ],
+            'id_b2b_import_item = ' . $idImportItem,
+            0,
+            true
+        );
+        $itemSaved = Db::getInstance()->update(
+            'b2b_import_item',
+            [
+                'status' => 'created',
+                'error_code' => null,
+                'error_message' => null,
+                'processed_at' => $now,
+                'date_upd' => $now,
+            ],
+            'id_b2b_import_item = ' . $idImportItem,
+            0,
+            true
+        );
+
+        if (!$stagingSaved || !$itemSaved) {
+            throw new RuntimeException('Cannot mark the import position as created.');
+        }
+    }
+
+    public function markImportItemSkipped(int $idImportItem): void
+    {
+        $now = date('Y-m-d H:i:s');
+
+        $stagingSaved = Db::getInstance()->update(
+            'b2b_import_price_staging',
+            [
+                'validation_status' => 'skipped',
+                'processing_status' => 'skipped',
+                'error_code' => null,
+                'error_message' => null,
+                'date_upd' => $now,
+            ],
+            'id_b2b_import_item = ' . $idImportItem,
+            0,
+            true
+        );
+        $itemSaved = Db::getInstance()->update(
+            'b2b_import_item',
+            [
+                'status' => 'skipped',
+                'error_code' => null,
+                'error_message' => null,
+                'processed_at' => $now,
+                'date_upd' => $now,
+            ],
+            'id_b2b_import_item = ' . $idImportItem,
+            0,
+            true
+        );
+
+        if (!$stagingSaved || !$itemSaved) {
+            throw new RuntimeException('Cannot skip the import position.');
+        }
+    }
+
     public function markRowProcessed(int $idStaging, int $idItem): void
     {
         $now = date('Y-m-d H:i:s');
@@ -471,10 +635,11 @@ final class ImportRepository
         $stats = Db::getInstance()->getRow('
             SELECT
                 COUNT(*) AS total_rows,
-                SUM(CASE WHEN status IN ("pending", "processed", "failed") THEN 1 ELSE 0 END) AS parsed_rows,
-                SUM(CASE WHEN status IN ("pending", "processed") THEN 1 ELSE 0 END) AS validated_rows,
-                SUM(CASE WHEN status = "processed" THEN 1 ELSE 0 END) AS processed_rows,
-                SUM(CASE WHEN status = "processed" THEN 1 ELSE 0 END) AS success_rows,
+                COUNT(*) AS parsed_rows,
+                SUM(CASE WHEN status IN ("pending", "processed", "created") THEN 1 ELSE 0 END) AS validated_rows,
+                SUM(CASE WHEN status IN ("processed", "created") THEN 1 ELSE 0 END) AS processed_rows,
+                SUM(CASE WHEN status IN ("processed", "created") THEN 1 ELSE 0 END) AS success_rows,
+                SUM(CASE WHEN status IN ("unmatched", "skipped") THEN 1 ELSE 0 END) AS warning_rows,
                 SUM(CASE WHEN status = "failed" THEN 1 ELSE 0 END) AS failed_rows
             FROM `' . _DB_PREFIX_ . 'b2b_import_item`
             WHERE id_b2b_import = ' . (int) $idImport
@@ -490,6 +655,7 @@ final class ImportRepository
             'validated_rows' => (int) $stats['validated_rows'],
             'processed_rows' => (int) $stats['processed_rows'],
             'success_rows' => (int) $stats['success_rows'],
+            'warning_rows' => (int) $stats['warning_rows'],
             'failed_rows' => (int) $stats['failed_rows'],
         ]);
     }
