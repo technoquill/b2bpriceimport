@@ -518,8 +518,16 @@
             var searchRequest = 0;
 
             if (window.jQuery && window.jQuery.fn.tooltip) {
-                window.jQuery('.b2b-import-item-action[data-toggle="tooltip"]').tooltip({
-                    container: 'body'
+                window.jQuery('.b2b-import-item-action[data-toggle="tooltip"]').each(function () {
+                    var action = window.jQuery(this);
+                    var bootstrapContainer = action.closest('.bootstrap');
+                    var tooltipOptions = {};
+
+                    if (bootstrapContainer.length) {
+                        tooltipOptions.container = bootstrapContainer.get(0);
+                    }
+
+                    action.tooltip(tooltipOptions);
                 });
             }
 
