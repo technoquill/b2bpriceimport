@@ -29,28 +29,52 @@ final class PriceImportProcessor
             throw new RuntimeException('Import not found.');
         }
 
+        $limit = max(1, $limit);
         $repository->setStatus($idImport, ImportStatus::PROCESSING);
 
         $processed = 0;
         $errors = 0;
+        $batches = 0;
 
-        foreach ($repository->getPendingStagingRows($idImport, $limit) as $row) {
-            $result = $this->processRow(
-                $idImport,
-                $row,
-                $repository,
-                $updater,
-                $auditLogger,
-                $detailedProductLogging
-            );
-            $processed += $result['processed'];
-            $errors += $result['failed'];
+        while (true) {
+            $rows = $repository->getPendingStagingRows($idImport, $limit);
+
+            if ($rows === []) {
+                break;
+            }
+
+            $batches++;
+
+            foreach ($rows as $row) {
+                $idStaging = (int) $row['id_b2b_import_price_staging'];
+                $idItem = (int) $row['id_b2b_import_item'];
+
+                try {
+                    $idProduct = (int) $row['id_product'];
+                    $priceUah = (float) $row['price_uah'];
+                    $active = $row['active'] !== null ? (int) $row['active'] : null;
+
+                    $updater->applyDiscountMatrix($idProduct, $priceUah);
+                    $updater->updateProduct($idProduct, $priceUah, $active);
+
+                    $repository->markRowProcessed($idStaging, $idItem);
+                    $processed++;
+                } catch (Throwable $exception) {
+                    $repository->markRowFailed($idStaging, $idItem, 'PROCESSING_ERROR', $exception->getMessage());
+                    $errors++;
+                }
+            }
         }
 
         $repository->refreshStats($idImport);
         $repository->setStatus($idImport, $errors > 0 ? ImportStatus::FAILED : ImportStatus::FINISHED);
 
-        return ['processed' => $processed, 'failed' => $errors];
+        return [
+            'processed' => $processed,
+            'failed' => $errors,
+            'batches' => $batches,
+            'has_more' => false,
+        ];
     }
 
     public function processItem(int $idImport, int $idImportItem): array
